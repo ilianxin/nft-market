@@ -1,8 +1,8 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Container } from '@mui/material';
-import Header from './components/Layout/Header.tsx';
-import Footer from './components/Layout/Footer.tsx';
+import Header from './components/Layout/Header';
+import Footer from './components/Layout/Footer';
 import HomePage from './pages/HomePage';
 import MarketplacePage from './pages/MarketplacePage';
 import NFTDetailPage from './pages/NFTDetailPage';

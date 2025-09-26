@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import App from './App.tsx';
+import App from './App';
 import { Web3Provider } from './contexts/Web3Context';
 
 // 创建React Query客户端
