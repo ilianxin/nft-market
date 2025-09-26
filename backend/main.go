@@ -36,6 +36,9 @@ func main() {
 	// 初始化服务层
 	orderService := services.NewOrderService(db, blockchainService)
 	nftService := services.NewNFTService(db, blockchainService)
+	collectionService := services.NewCollectionService(db)
+	itemService := services.NewItemService(db)
+	activityService := services.NewActivityService(db)
 
 	// 设置Gin模式
 	if cfg.Environment == "production" {
@@ -53,7 +56,7 @@ func main() {
 	router.Use(cors.New(corsConfig))
 
 	// 设置API路由
-	api.SetupRoutes(router, orderService, nftService)
+	api.SetupRoutes(router, orderService, nftService, collectionService, itemService, activityService)
 
 	// 启动服务器
 	log.Printf("服务器启动在端口 %s", cfg.Port)

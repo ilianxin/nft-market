@@ -67,8 +67,8 @@ export const apiService = {
     return response.data;
   },
 
-  getNFTOrders: async (contract: string, tokenId: string, page: number = 1, pageSize: number = 20) => {
-    const response = await api.get(`/orders/nft/${contract}/${tokenId}`, {
+  getNFTOrders: async (collectionAddress: string, tokenId: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get(`/orders/nft/${collectionAddress}/${tokenId}`, {
       params: { page, page_size: pageSize }
     });
     return response.data;
@@ -84,53 +84,123 @@ export const apiService = {
     return response.data;
   },
 
-  // NFT相关API
-  getNFTs: async (page: number = 1, pageSize: number = 20) => {
-    const response = await api.get('/nfts', {
+  // 物品相关API (原NFT API)
+  getItems: async (page: number = 1, pageSize: number = 20) => {
+    const response = await api.get('/items', {
       params: { page, page_size: pageSize }
     });
     return response.data;
   },
 
-  getNFTById: async (contract: string, tokenId: string) => {
-    const response = await api.get(`/nfts/${contract}/${tokenId}`);
+  getItemById: async (id: number) => {
+    const response = await api.get(`/items/id/${id}`);
     return response.data;
   },
 
-  getUserNFTs: async (address: string, page: number = 1, pageSize: number = 20) => {
-    const response = await api.get(`/nfts/user/${address}`, {
+  getItemByTokenId: async (collectionAddress: string, tokenId: string) => {
+    const response = await api.get(`/items/token/${collectionAddress}/${tokenId}`);
+    return response.data;
+  },
+
+  getUserItems: async (address: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get(`/items/owner/${address}`, {
       params: { page, page_size: pageSize }
     });
     return response.data;
   },
 
-  getNFTsByContract: async (contract: string, page: number = 1, pageSize: number = 20) => {
-    const response = await api.get(`/nfts/contract/${contract}`, {
+  getItemsByCollection: async (collectionAddress: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get(`/items/collection/${collectionAddress}`, {
       params: { page, page_size: pageSize }
     });
     return response.data;
   },
 
-  searchNFTs: async (keyword: string, page: number = 1, pageSize: number = 20) => {
-    const response = await api.get('/nfts/search', {
+  searchItems: async (keyword: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get('/items/search', {
       params: { q: keyword, page, page_size: pageSize }
     });
     return response.data;
   },
 
-  createOrUpdateNFT: async (nftData: any) => {
-    const response = await api.post('/nfts', nftData);
+  createOrUpdateItem: async (itemData: any) => {
+    const response = await api.post('/items', itemData);
+    return response.data;
+  },
+
+  updateItemOwner: async (collectionAddress: string, tokenId: string, owner: string) => {
+    const response = await api.put(`/items/token/${collectionAddress}/${tokenId}/owner`, { owner });
+    return response.data;
+  },
+
+  updateItemPrice: async (collectionAddress: string, tokenId: string, price: number) => {
+    const response = await api.put(`/items/token/${collectionAddress}/${tokenId}/price`, { price });
+    return response.data;
+  },
+
+  // 集合相关API
+  getCollections: async (page: number = 1, pageSize: number = 20) => {
+    const response = await api.get('/collections', {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  },
+
+  getCollectionById: async (id: number) => {
+    const response = await api.get(`/collections/${id}`);
+    return response.data;
+  },
+
+  getCollectionByAddress: async (address: string) => {
+    const response = await api.get(`/collections/address/${address}`);
+    return response.data;
+  },
+
+  createCollection: async (collectionData: any) => {
+    const response = await api.post('/collections', collectionData);
+    return response.data;
+  },
+
+  updateCollection: async (id: number, collectionData: any) => {
+    const response = await api.put(`/collections/${id}`, collectionData);
+    return response.data;
+  },
+
+  // 活动相关API
+  getActivities: async (page: number = 1, pageSize: number = 20) => {
+    const response = await api.get('/activities', {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  },
+
+  getActivityById: async (id: number) => {
+    const response = await api.get(`/activities/${id}`);
+    return response.data;
+  },
+
+  getActivitiesByUser: async (address: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get(`/activities/user/${address}`, {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  },
+
+  getActivitiesByItem: async (collectionAddress: string, tokenId: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get(`/activities/item/${collectionAddress}/${tokenId}`, {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  },
+
+  createActivity: async (activityData: any) => {
+    const response = await api.post('/activities', activityData);
     return response.data;
   },
 
   // 市场数据API
   getMarketStats: async () => {
     const response = await api.get('/market/stats');
-    return response.data;
-  },
-
-  getCollections: async () => {
-    const response = await api.get('/market/collections');
     return response.data;
   },
 

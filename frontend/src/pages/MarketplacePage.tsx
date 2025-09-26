@@ -56,7 +56,7 @@ const MarketplacePage: React.FC = () => {
   const { data: ordersData, isLoading: ordersLoading } = useQuery(
     ['orders', tabValue, page],
     () => {
-      const orderType = tabValue === 1 ? 'limit_sell' : tabValue === 2 ? 'limit_buy' : '';
+      const orderType = tabValue === 1 ? '1' : tabValue === 2 ? '2' : '';
       return apiService.getOrders(page, pageSize, orderType);
     },
     {
@@ -64,23 +64,22 @@ const MarketplacePage: React.FC = () => {
     }
   );
 
-  const getOrderTypeChip = (orderType: string) => {
+  const getOrderTypeChip = (orderType: number) => {
     const config = {
-      limit_sell: { label: '限价卖单', color: 'error' as const },
-      limit_buy: { label: '限价买单', color: 'success' as const },
-      market_sell: { label: '市价卖单', color: 'warning' as const },
-      market_buy: { label: '市价买单', color: 'info' as const },
+      1: { label: '上架', color: 'error' as const },
+      2: { label: '出价', color: 'success' as const },
+      3: { label: '集合出价', color: 'warning' as const },
+      4: { label: '物品出价', color: 'info' as const },
     };
     
-    return config[orderType as keyof typeof config] || { label: orderType, color: 'default' as const };
+    return config[orderType as keyof typeof config] || { label: `类型${orderType}`, color: 'default' as const };
   };
 
-  const formatPrice = (price: string) => {
+  const formatPrice = (price: number) => {
     try {
-      const ethValue = parseFloat(price) / Math.pow(10, 18);
-      return ethValue.toFixed(4) + ' ETH';
+      return price.toFixed(4) + ' ETH';
     } catch {
-      return price;
+      return price.toString();
     }
   };
 
@@ -100,8 +99,8 @@ const MarketplacePage: React.FC = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="全部订单" />
-          <Tab label="限价卖单" />
-          <Tab label="限价买单" />
+          <Tab label="上架订单" />
+          <Tab label="出价订单" />
         </Tabs>
       </Box>
 
@@ -113,8 +112,7 @@ const MarketplacePage: React.FC = () => {
         ) : (
           <>
             <Grid container spacing={3}>
-              {ordersData?.data?.orders?.map((orderResponse: any) => {
-                const order = orderResponse.order;
+              {ordersData?.data?.orders?.map((order: any) => {
                 const chipConfig = getOrderTypeChip(order.order_type);
                 
                 return (
@@ -145,19 +143,19 @@ const MarketplacePage: React.FC = () => {
                           {formatPrice(order.price)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          合约: {formatAddress(order.nft_contract)}
+                          集合: {formatAddress(order.collection_address || '')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          创建者: {formatAddress(order.maker)}
+                          创建者: {formatAddress(order.maker || '')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          过期时间: {new Date(order.expiration).toLocaleDateString()}
+                          过期时间: {order.expire_time ? new Date(order.expire_time * 1000).toLocaleDateString() : '无'}
                         </Typography>
                         <Button
                           fullWidth
                           variant="contained"
                           component={Link}
-                          to={`/nft/${order.nft_contract}/${order.token_id}`}
+                          to={`/nft/${order.collection_address}/${order.token_id}`}
                           sx={{ mt: 2 }}
                         >
                           查看详情
@@ -200,7 +198,7 @@ const MarketplacePage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        {/* 限价卖单内容 */}
+        {/* 上架订单内容 */}
         {ordersLoading ? (
           <Box className="loading-spinner">
             <CircularProgress />
@@ -208,9 +206,7 @@ const MarketplacePage: React.FC = () => {
         ) : (
           <>
             <Grid container spacing={3}>
-              {ordersData?.data?.orders?.map((orderResponse: any) => {
-                const order = orderResponse.order;
-                
+              {ordersData?.data?.orders?.map((order: any) => {
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
                     <Card className="nft-card">
@@ -229,23 +225,23 @@ const MarketplacePage: React.FC = () => {
                       </Box>
                       <CardContent>
                         <Box sx={{ mb: 1 }}>
-                          <Chip label="限价卖单" color="error" size="small" />
+                          <Chip label="上架" color="error" size="small" />
                         </Box>
                         <Typography variant="h6" gutterBottom>
                           {formatPrice(order.price)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          合约: {formatAddress(order.nft_contract)}
+                          集合: {formatAddress(order.collection_address || '')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          卖家: {formatAddress(order.maker)}
+                          卖家: {formatAddress(order.maker || '')}
                         </Typography>
                         <Button
                           fullWidth
                           variant="contained"
                           color="success"
                           component={Link}
-                          to={`/nft/${order.nft_contract}/${order.token_id}`}
+                          to={`/nft/${order.collection_address}/${order.token_id}`}
                           sx={{ mt: 2 }}
                         >
                           立即购买
@@ -261,7 +257,7 @@ const MarketplacePage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        {/* 限价买单内容 */}
+        {/* 出价订单内容 */}
         {ordersLoading ? (
           <Box className="loading-spinner">
             <CircularProgress />
@@ -269,9 +265,7 @@ const MarketplacePage: React.FC = () => {
         ) : (
           <>
             <Grid container spacing={3}>
-              {ordersData?.data?.orders?.map((orderResponse: any) => {
-                const order = orderResponse.order;
-                
+              {ordersData?.data?.orders?.map((order: any) => {
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
                     <Card className="nft-card">
@@ -290,23 +284,23 @@ const MarketplacePage: React.FC = () => {
                       </Box>
                       <CardContent>
                         <Box sx={{ mb: 1 }}>
-                          <Chip label="限价买单" color="success" size="small" />
+                          <Chip label="出价" color="success" size="small" />
                         </Box>
                         <Typography variant="h6" gutterBottom>
                           {formatPrice(order.price)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          合约: {formatAddress(order.nft_contract)}
+                          集合: {formatAddress(order.collection_address || '')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          买家: {formatAddress(order.maker)}
+                          买家: {formatAddress(order.maker || '')}
                         </Typography>
                         <Button
                           fullWidth
                           variant="contained"
                           color="error"
                           component={Link}
-                          to={`/nft/${order.nft_contract}/${order.token_id}`}
+                          to={`/nft/${order.collection_address}/${order.token_id}`}
                           sx={{ mt: 2 }}
                         >
                           立即出售

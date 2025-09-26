@@ -18,10 +18,10 @@ import { useWeb3 } from '../contexts/Web3Context';
 import { apiService } from '../services/api';
 
 interface OrderFormData {
-  nftContract: string;
+  collectionAddress: string;
   tokenId: string;
   price: string;
-  orderType: string;
+  orderType: number;
   expirationDays: number;
 }
 
@@ -39,10 +39,10 @@ const CreateOrderPage: React.FC = () => {
     watch
   } = useForm<OrderFormData>({
     defaultValues: {
-      nftContract: '',
+      collectionAddress: '',
       tokenId: '',
       price: '',
-      orderType: 'limit_sell',
+      orderType: 1, // 1: 上架
       expirationDays: 7,
     },
   });
@@ -65,12 +65,14 @@ const CreateOrderPage: React.FC = () => {
       expirationDate.setDate(expirationDate.getDate() + data.expirationDays);
 
       const orderData = {
-        nft_contract: data.nftContract,
+        collection_address: data.collectionAddress,
         token_id: data.tokenId,
-        price: data.price || '0', // 买单价格通过发送ETH设置
+        price: parseFloat(data.price) || 0, // 转换为数字
         order_type: data.orderType,
-        expiration: expirationDate.toISOString(),
-        signature: '', // 实际应用中需要用户签名
+        expire_time: Math.floor(expirationDate.getTime() / 1000), // 转换为Unix时间戳
+        quantity_remaining: 1,
+        size: 1,
+        currency_address: '0x0000000000000000000000000000000000000000', // ETH地址
       };
 
       // 保存用户地址到本地存储
@@ -141,10 +143,10 @@ const CreateOrderPage: React.FC = () => {
                       <FormControl fullWidth error={!!errors.orderType}>
                         <InputLabel>订单类型</InputLabel>
                         <Select {...field} label="订单类型">
-                          <MenuItem value="limit_sell">限价卖单</MenuItem>
-                          <MenuItem value="limit_buy">限价买单</MenuItem>
-                          <MenuItem value="market_sell">市价卖单</MenuItem>
-                          <MenuItem value="market_buy">市价买单</MenuItem>
+                          <MenuItem value={1}>上架</MenuItem>
+                          <MenuItem value={2}>出价</MenuItem>
+                          <MenuItem value={3}>集合出价</MenuItem>
+                          <MenuItem value={4}>物品出价</MenuItem>
                         </Select>
                       </FormControl>
                     )}
@@ -153,10 +155,10 @@ const CreateOrderPage: React.FC = () => {
 
                 <Grid item xs={12} sm={6}>
                   <Controller
-                    name="nftContract"
+                    name="collectionAddress"
                     control={control}
                     rules={{ 
-                      required: 'NFT合约地址不能为空',
+                      required: '集合地址不能为空',
                       pattern: {
                         value: /^0x[a-fA-F0-9]{40}$/,
                         message: '请输入有效的以太坊地址'
@@ -166,10 +168,10 @@ const CreateOrderPage: React.FC = () => {
                       <TextField
                         {...field}
                         fullWidth
-                        label="NFT合约地址"
+                        label="集合地址"
                         placeholder="0x..."
-                        error={!!errors.nftContract}
-                        helperText={errors.nftContract?.message}
+                        error={!!errors.collectionAddress}
+                        helperText={errors.collectionAddress?.message}
                       />
                     )}
                   />
@@ -193,7 +195,7 @@ const CreateOrderPage: React.FC = () => {
                   />
                 </Grid>
 
-                {(orderType === 'limit_sell' || orderType === 'market_sell') && (
+                {(orderType === 1 || orderType === 2) && (
                   <Grid item xs={12} sm={6}>
                     <Controller
                       name="price"
@@ -221,35 +223,7 @@ const CreateOrderPage: React.FC = () => {
                   </Grid>
                 )}
 
-                {(orderType === 'limit_buy') && (
-                  <Grid item xs={12} sm={6}>
-                    <Controller
-                      name="price"
-                      control={control}
-                      rules={{ 
-                        required: '出价不能为空',
-                        pattern: {
-                          value: /^\d*\.?\d+$/,
-                          message: '请输入有效的出价'
-                        }
-                      }}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="出价 (ETH)"
-                          placeholder="0.1"
-                          type="number"
-                          inputProps={{ step: '0.001', min: '0' }}
-                          error={!!errors.price}
-                          helperText={errors.price?.message || '创建买单时需要预先锁定这些ETH'}
-                        />
-                      )}
-                    />
-                  </Grid>
-                )}
-
-                {(orderType === 'limit_sell' || orderType === 'limit_buy') && (
+                {(orderType === 1 || orderType === 2) && (
                   <Grid item xs={12} sm={6}>
                     <Controller
                       name="expirationDays"
@@ -299,37 +273,37 @@ const CreateOrderPage: React.FC = () => {
             
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                限价卖单
+                上架
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                设定期望售价，等待买家以该价格购买您的NFT
+                将您的NFT上架到市场，设定期望售价等待买家购买
               </Typography>
             </Box>
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                限价买单
+                出价
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                设定出价并锁定ETH，等待卖家接受您的报价
+                对特定NFT出价，等待卖家接受您的报价
               </Typography>
             </Box>
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                市价卖单
+                集合出价
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                立即以当前最高买价出售您的NFT
+                对整个集合出价，购买集合中的任意NFT
               </Typography>
             </Box>
 
             <Box>
               <Typography variant="subtitle2" gutterBottom>
-                市价买单
+                物品出价
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                立即以当前最低售价购买指定的NFT
+                对特定物品出价，等待卖家接受
               </Typography>
             </Box>
           </Paper>
@@ -339,10 +313,10 @@ const CreateOrderPage: React.FC = () => {
               注意事项
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              • 创建卖单前请确保已授权NFT合约
+              • 创建上架订单前请确保已授权集合合约
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              • 创建买单时ETH将被锁定直到订单成交或取消
+              • 创建出价订单时ETH将被锁定直到订单成交或取消
             </Typography>
             <Typography variant="body2" color="text.secondary">
               • 所有交易都通过智能合约执行，确保安全透明

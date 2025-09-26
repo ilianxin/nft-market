@@ -58,10 +58,10 @@ func (nh *NFTHandler) GetNFTs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "获取NFT列表成功",
 		"data": gin.H{
-			"nfts":       []models.NFT{},
-			"total":      0,
-			"page":       page,
-			"page_size":  pageSize,
+			"nfts":        []models.Item{},
+			"total":       0,
+			"page":        page,
+			"page_size":   pageSize,
 			"total_pages": 0,
 		},
 	})
@@ -190,8 +190,8 @@ func (nh *NFTHandler) SearchNFTs(c *gin.Context) {
 
 // CreateOrUpdateNFT 创建或更新NFT
 func (nh *NFTHandler) CreateOrUpdateNFT(c *gin.Context) {
-	var nft models.NFT
-	if err := c.ShouldBindJSON(&nft); err != nil {
+	var item models.Item
+	if err := c.ShouldBindJSON(&item); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "请求参数无效: " + err.Error(),
@@ -200,7 +200,7 @@ func (nh *NFTHandler) CreateOrUpdateNFT(c *gin.Context) {
 		return
 	}
 
-	err := nh.nftService.CreateOrUpdateNFT(&nft)
+	err := nh.nftService.CreateOrUpdateNFT(&item)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "create_nft_failed",
@@ -212,6 +212,6 @@ func (nh *NFTHandler) CreateOrUpdateNFT(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "NFT创建或更新成功",
-		"data":    nft,
+		"data":    item,
 	})
 }

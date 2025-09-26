@@ -61,10 +61,10 @@ const UserProfilePage: React.FC = () => {
     }
   );
 
-  // 获取用户NFT
-  const { data: nftsData, isLoading: nftsLoading } = useQuery(
-    ['userNFTs', address],
-    () => apiService.getUserNFTs(address!),
+  // 获取用户物品
+  const { data: itemsData, isLoading: itemsLoading } = useQuery(
+    ['userItems', address],
+    () => apiService.getUserItems(address!),
     {
       enabled: !!address,
     }
@@ -88,42 +88,41 @@ const UserProfilePage: React.FC = () => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const formatPrice = (price: string) => {
+  const formatPrice = (price: number) => {
     try {
-      const ethValue = parseFloat(price) / Math.pow(10, 18);
-      return ethValue.toFixed(4) + ' ETH';
+      return price.toFixed(4) + ' ETH';
     } catch {
-      return price;
+      return price.toString();
     }
   };
 
-  const getOrderStatusColor = (status: string) => {
+  const getOrderStatusColor = (status: number) => {
     switch (status) {
-      case 'active': return 'success';
-      case 'filled': return 'info';
-      case 'cancelled': return 'error';
-      case 'expired': return 'warning';
+      case 0: return 'success'; // 活跃
+      case 1: return 'info';    // 已成交
+      case 2: return 'error';   // 已取消
+      case 3: return 'warning'; // 已过期
       default: return 'default';
     }
   };
 
-  const getOrderStatusText = (status: string) => {
+  const getOrderStatusText = (status: number) => {
     switch (status) {
-      case 'active': return '活跃';
-      case 'filled': return '已成交';
-      case 'cancelled': return '已取消';
-      case 'expired': return '已过期';
-      default: return status;
+      case 0: return '活跃';
+      case 1: return '已成交';
+      case 2: return '已取消';
+      case 3: return '已过期';
+      default: return `状态${status}`;
     }
   };
 
-  const getOrderTypeText = (orderType: string) => {
+  const getOrderTypeText = (orderType: number) => {
     switch (orderType) {
-      case 'limit_sell': return '限价卖单';
-      case 'limit_buy': return '限价买单';
-      case 'market_sell': return '市价卖单';
-      case 'market_buy': return '市价买单';
-      default: return orderType;
+      case 1: return '上架';
+      case 2: return '出价';
+      case 3: return '集合出价';
+      case 4: return '物品出价';
+      default: return `类型${orderType}`;
     }
   };
 
@@ -158,7 +157,7 @@ const UserProfilePage: React.FC = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="我的订单" />
-          <Tab label="我的NFT" />
+          <Tab label="我的物品" />
           <Tab label="交易历史" />
         </Tabs>
       </Box>
@@ -171,8 +170,7 @@ const UserProfilePage: React.FC = () => {
           </Box>
         ) : (
           <Grid container spacing={3}>
-            {ordersData?.data?.orders?.map((orderResponse: any) => {
-              const order = orderResponse.order;
+            {ordersData?.data?.orders?.map((order: any) => {
               return (
                 <Grid item xs={12} md={6} lg={4} key={order.id}>
                   <Card>
@@ -184,8 +182,8 @@ const UserProfilePage: React.FC = () => {
                           size="small"
                         />
                         <Chip
-                          label={getOrderStatusText(order.status)}
-                          color={getOrderStatusColor(order.status) as any}
+                          label={getOrderStatusText(order.order_status)}
+                          color={getOrderStatusColor(order.order_status) as any}
                           size="small"
                         />
                       </Box>
@@ -195,22 +193,22 @@ const UserProfilePage: React.FC = () => {
                       </Typography>
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        NFT: #{order.token_id}
+                        Token ID: #{order.token_id}
                       </Typography>
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        合约: {formatAddress(order.nft_contract)}
+                        集合: {formatAddress(order.collection_address || '')}
                       </Typography>
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        创建时间: {new Date(order.created_at).toLocaleDateString()}
+                        创建时间: {order.create_time ? new Date(order.create_time * 1000).toLocaleDateString() : '未知'}
                       </Typography>
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        过期时间: {new Date(order.expiration).toLocaleDateString()}
+                        过期时间: {order.expire_time ? new Date(order.expire_time * 1000).toLocaleDateString() : '无'}
                       </Typography>
 
-                      {isOwnProfile && order.status === 'active' && (
+                      {isOwnProfile && order.order_status === 0 && (
                         <Button
                           variant="outlined"
                           color="error"
@@ -243,15 +241,15 @@ const UserProfilePage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        {/* NFT列表 */}
-        {nftsLoading ? (
+        {/* 物品列表 */}
+        {itemsLoading ? (
           <Box className="loading-spinner">
             <CircularProgress />
           </Box>
         ) : (
           <Grid container spacing={3}>
-            {nftsData?.data?.nfts?.map((nft: any) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={`${nft.contract}-${nft.token_id}`}>
+            {itemsData?.data?.items?.map((item: any) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={`${item.collection_address}-${item.token_id}`}>
                 <Card>
                   <Box
                     sx={{
@@ -262,38 +260,35 @@ const UserProfilePage: React.FC = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    {nft.image ? (
-                      <img
-                        src={nft.image}
-                        alt={nft.name || `NFT #${nft.token_id}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <Typography variant="h6" color="text.secondary">
-                        NFT #{nft.token_id}
-                      </Typography>
-                    )}
+                    <Typography variant="h6" color="text.secondary">
+                      Item #{item.token_id}
+                    </Typography>
                   </Box>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      {nft.name || `NFT #${nft.token_id}`}
+                      {item.name || `Item #${item.token_id}`}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {nft.description}
+                      拥有者: {formatAddress(item.owner || '')}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      合约: {formatAddress(nft.contract)}
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      集合: {formatAddress(item.collection_address || '')}
                     </Typography>
+                    {item.list_price && (
+                      <Typography variant="body2" color="text.secondary">
+                        上架价格: {formatPrice(item.list_price)}
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
             ))}
 
-            {(!nftsData?.data?.nfts || nftsData.data.nfts.length === 0) && (
+            {(!itemsData?.data?.items || itemsData.data.items.length === 0) && (
               <Grid item xs={12}>
                 <Box sx={{ textAlign: 'center', py: 8 }}>
                   <Typography variant="h6" color="text.secondary">
-                    暂无NFT资产
+                    暂无物品资产
                   </Typography>
                 </Box>
               </Grid>

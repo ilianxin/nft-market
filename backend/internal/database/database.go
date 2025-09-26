@@ -19,10 +19,11 @@ func Init(databaseURL string) (*gorm.DB, error) {
 
 	// 自动迁移数据库表结构
 	err = db.AutoMigrate(
+		&models.Collection{},
+		&models.Item{},
 		&models.Order{},
-		&models.NFT{},
+		&models.Activity{},
 		&models.User{},
-		&models.Transaction{},
 	)
 	if err != nil {
 		return nil, err

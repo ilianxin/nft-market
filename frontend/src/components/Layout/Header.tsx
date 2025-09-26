@@ -58,6 +58,12 @@ const Header: React.FC = () => {
           <Button color="inherit" component={Link} to="/marketplace">
             市场
           </Button>
+          <Button color="inherit" component={Link} to="/collections">
+            集合
+          </Button>
+          <Button color="inherit" component={Link} to="/activities">
+            活动
+          </Button>
           <Button color="inherit" component={Link} to="/create-order">
             创建订单
           </Button>

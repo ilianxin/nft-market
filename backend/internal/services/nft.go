@@ -9,51 +9,51 @@ import (
 
 // NFTService NFT服务
 type NFTService struct {
-	db               *gorm.DB
+	db                *gorm.DB
 	blockchainService *BlockchainService
 }
 
 // NewNFTService 创建新的NFT服务
 func NewNFTService(db *gorm.DB, blockchainService *BlockchainService) *NFTService {
 	return &NFTService{
-		db:               db,
+		db:                db,
 		blockchainService: blockchainService,
 	}
 }
 
 // GetNFTByContractAndTokenID 根据合约地址和Token ID获取NFT
-func (ns *NFTService) GetNFTByContractAndTokenID(contract, tokenID string) (*models.NFT, error) {
-	var nft models.NFT
-	err := ns.db.Where("contract = ? AND token_id = ?", contract, tokenID).First(&nft).Error
+func (ns *NFTService) GetNFTByContractAndTokenID(contract, tokenID string) (*models.Item, error) {
+	var item models.Item
+	err := ns.db.Where("collection_address = ? AND token_id = ?", contract, tokenID).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
-	return &nft, nil
+	return &item, nil
 }
 
 // CreateOrUpdateNFT 创建或更新NFT
-func (ns *NFTService) CreateOrUpdateNFT(nft *models.NFT) error {
-	var existingNFT models.NFT
-	err := ns.db.Where("contract = ? AND token_id = ?", nft.Contract, nft.TokenID).First(&existingNFT).Error
-	
+func (ns *NFTService) CreateOrUpdateNFT(item *models.Item) error {
+	var existingItem models.Item
+	err := ns.db.Where("collection_address = ? AND token_id = ?", item.CollectionAddress, item.TokenID).First(&existingItem).Error
+
 	if err == gorm.ErrRecordNotFound {
 		// 创建新NFT
-		return ns.db.Create(nft).Error
+		return ns.db.Create(item).Error
 	} else if err != nil {
 		return err
 	} else {
 		// 更新现有NFT
-		nft.ID = existingNFT.ID
-		return ns.db.Save(nft).Error
+		item.ID = existingItem.ID
+		return ns.db.Save(item).Error
 	}
 }
 
 // GetUserNFTs 获取用户的NFT列表
-func (ns *NFTService) GetUserNFTs(owner string, page, pageSize int) ([]models.NFT, int64, error) {
-	var nfts []models.NFT
+func (ns *NFTService) GetUserNFTs(owner string, page, pageSize int) ([]models.Item, int64, error) {
+	var items []models.Item
 	var total int64
 
-	query := ns.db.Model(&models.NFT{}).Where("owner = ?", owner)
+	query := ns.db.Model(&models.Item{}).Where("owner = ?", owner)
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -62,19 +62,19 @@ func (ns *NFTService) GetUserNFTs(owner string, page, pageSize int) ([]models.NF
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&nfts).Error; err != nil {
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return nfts, total, nil
+	return items, total, nil
 }
 
 // GetNFTsByContract 根据合约地址获取NFT列表
-func (ns *NFTService) GetNFTsByContract(contract string, page, pageSize int) ([]models.NFT, int64, error) {
-	var nfts []models.NFT
+func (ns *NFTService) GetNFTsByContract(contract string, page, pageSize int) ([]models.Item, int64, error) {
+	var items []models.Item
 	var total int64
 
-	query := ns.db.Model(&models.NFT{}).Where("contract = ?", contract)
+	query := ns.db.Model(&models.Item{}).Where("collection_address = ?", contract)
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -83,20 +83,20 @@ func (ns *NFTService) GetNFTsByContract(contract string, page, pageSize int) ([]
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&nfts).Error; err != nil {
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return nfts, total, nil
+	return items, total, nil
 }
 
 // SearchNFTs 搜索NFT
-func (ns *NFTService) SearchNFTs(keyword string, page, pageSize int) ([]models.NFT, int64, error) {
-	var nfts []models.NFT
+func (ns *NFTService) SearchNFTs(keyword string, page, pageSize int) ([]models.Item, int64, error) {
+	var items []models.Item
 	var total int64
 
 	searchPattern := "%" + keyword + "%"
-	query := ns.db.Model(&models.NFT{}).Where("name ILIKE ? OR description ILIKE ?", searchPattern, searchPattern)
+	query := ns.db.Model(&models.Item{}).Where("name LIKE ?", searchPattern)
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -105,19 +105,19 @@ func (ns *NFTService) SearchNFTs(keyword string, page, pageSize int) ([]models.N
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&nfts).Error; err != nil {
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
 
-	return nfts, total, nil
+	return items, total, nil
 }
 
 // UpdateNFTOwner 更新NFT所有者
 func (ns *NFTService) UpdateNFTOwner(contract, tokenID, newOwner string) error {
-	result := ns.db.Model(&models.NFT{}).
-		Where("contract = ? AND token_id = ?", contract, tokenID).
+	result := ns.db.Model(&models.Item{}).
+		Where("collection_address = ? AND token_id = ?", contract, tokenID).
 		Update("owner", newOwner)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}

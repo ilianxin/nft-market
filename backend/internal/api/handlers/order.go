@@ -63,7 +63,7 @@ func (oh *OrderHandler) CreateOrder(c *gin.Context) {
 // GetOrderByID 获取单个订单
 func (oh *OrderHandler) GetOrderByID(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_id",
@@ -151,8 +151,8 @@ func (oh *OrderHandler) GetUserOrders(c *gin.Context) {
 
 // GetNFTOrders 获取NFT订单
 func (oh *OrderHandler) GetNFTOrders(c *gin.Context) {
-	contract := c.Param("contract")
-	tokenId := c.Param("tokenId")
+	collectionAddress := c.Param("collection_address")
+	tokenId := c.Param("token_id")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
@@ -163,7 +163,7 @@ func (oh *OrderHandler) GetNFTOrders(c *gin.Context) {
 		pageSize = 20
 	}
 
-	orders, err := oh.orderService.GetNFTOrders(contract, tokenId, page, pageSize)
+	orders, err := oh.orderService.GetNFTOrders(collectionAddress, tokenId, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "get_nft_orders_failed",
@@ -182,7 +182,7 @@ func (oh *OrderHandler) GetNFTOrders(c *gin.Context) {
 // CancelOrder 取消订单
 func (oh *OrderHandler) CancelOrder(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_id",
@@ -203,7 +203,7 @@ func (oh *OrderHandler) CancelOrder(c *gin.Context) {
 		return
 	}
 
-	err = oh.orderService.CancelOrder(uint(id), userAddress)
+	err = oh.orderService.CancelOrder(id, userAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "cancel_order_failed",

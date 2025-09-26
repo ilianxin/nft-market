@@ -4,23 +4,21 @@ import (
 	"fmt"
 	"math/big"
 	"nft-market/internal/models"
-	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/gorm"
 )
 
 // OrderService 订单服务
 type OrderService struct {
-	db               *gorm.DB
+	db                *gorm.DB
 	blockchainService *BlockchainService
 }
 
 // NewOrderService 创建新的订单服务
 func NewOrderService(db *gorm.DB, blockchainService *BlockchainService) *OrderService {
 	return &OrderService{
-		db:               db,
+		db:                db,
 		blockchainService: blockchainService,
 	}
 }
@@ -32,19 +30,26 @@ func (os *OrderService) CreateOrder(req *models.CreateOrderRequest, maker string
 		return nil, err
 	}
 
+	// 生成订单ID（这里简化处理，实际项目中应该从区块链获取）
+	orderID := fmt.Sprintf("0x%x", time.Now().UnixNano())
+	now := time.Now().Unix()
+
 	// 创建订单模型
 	order := &models.Order{
-		Maker:       maker,
-		NFTContract: req.NFTContract,
-		TokenID:     req.TokenID,
-		Price:       req.Price,
-		Amount:      1,
-		OrderType:   req.OrderType,
-		Status:      models.OrderStatusActive,
-		Expiration:  req.Expiration,
-		Signature:   req.Signature,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		OrderID:           orderID,
+		OrderType:         req.OrderType,
+		OrderStatus:       models.OrderStatusActive,
+		CollectionAddress: req.CollectionAddress,
+		TokenID:           req.TokenID,
+		Price:             req.Price,
+		Maker:             &maker,
+		QuantityRemaining: req.QuantityRemaining,
+		Size:              req.Size,
+		CurrencyAddress:   req.CurrencyAddress,
+		EventTime:         &now,
+		ExpireTime:        req.ExpireTime,
+		CreateTime:        &now,
+		UpdateTime:        &now,
 	}
 
 	// 保存到数据库
@@ -68,7 +73,7 @@ func (os *OrderService) GetOrderByID(id uint) (*models.Order, error) {
 }
 
 // GetOrderByOrderID 根据链上订单ID获取订单
-func (os *OrderService) GetOrderByOrderID(orderID uint64) (*models.Order, error) {
+func (os *OrderService) GetOrderByOrderID(orderID string) (*models.Order, error) {
 	var order models.Order
 	if err := os.db.Where("order_id = ?", orderID).First(&order).Error; err != nil {
 		return nil, err
@@ -82,9 +87,9 @@ func (os *OrderService) GetUserOrders(userAddress string, page, pageSize int, st
 	var total int64
 
 	query := os.db.Model(&models.Order{}).Where("maker = ?", userAddress)
-	
+
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("order_status = ?", status)
 	}
 
 	// 获取总数
@@ -98,18 +103,10 @@ func (os *OrderService) GetUserOrders(userAddress string, page, pageSize int, st
 		return nil, err
 	}
 
-	// 构建响应
-	orderResponses := make([]models.OrderResponse, len(orders))
-	for i, order := range orders {
-		orderResponses[i] = models.OrderResponse{
-			Order: &order,
-		}
-	}
-
 	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
 
 	return &models.OrderListResponse{
-		Orders:     orderResponses,
+		Orders:     orders,
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
@@ -118,11 +115,11 @@ func (os *OrderService) GetUserOrders(userAddress string, page, pageSize int, st
 }
 
 // GetNFTOrders 获取NFT的所有订单
-func (os *OrderService) GetNFTOrders(nftContract, tokenID string, page, pageSize int) (*models.OrderListResponse, error) {
+func (os *OrderService) GetNFTOrders(collectionAddress, tokenID string, page, pageSize int) (*models.OrderListResponse, error) {
 	var orders []models.Order
 	var total int64
 
-	query := os.db.Model(&models.Order{}).Where("nft_contract = ? AND token_id = ?", nftContract, tokenID)
+	query := os.db.Model(&models.Order{}).Where("collection_address = ? AND token_id = ?", collectionAddress, tokenID)
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -135,18 +132,10 @@ func (os *OrderService) GetNFTOrders(nftContract, tokenID string, page, pageSize
 		return nil, err
 	}
 
-	// 构建响应
-	orderResponses := make([]models.OrderResponse, len(orders))
-	for i, order := range orders {
-		orderResponses[i] = models.OrderResponse{
-			Order: &order,
-		}
-	}
-
 	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
 
 	return &models.OrderListResponse{
-		Orders:     orderResponses,
+		Orders:     orders,
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
@@ -159,9 +148,10 @@ func (os *OrderService) GetActiveOrders(page, pageSize int, orderType string) (*
 	var orders []models.Order
 	var total int64
 
-	query := os.db.Model(&models.Order{}).Where("status = ? AND expiration > ?", 
-		models.OrderStatusActive, time.Now())
-	
+	now := time.Now().Unix()
+	query := os.db.Model(&models.Order{}).Where("order_status = ? AND (expire_time IS NULL OR expire_time > ?)",
+		models.OrderStatusActive, now)
+
 	if orderType != "" {
 		query = query.Where("order_type = ?", orderType)
 	}
@@ -177,18 +167,10 @@ func (os *OrderService) GetActiveOrders(page, pageSize int, orderType string) (*
 		return nil, err
 	}
 
-	// 构建响应
-	orderResponses := make([]models.OrderResponse, len(orders))
-	for i, order := range orders {
-		orderResponses[i] = models.OrderResponse{
-			Order: &order,
-		}
-	}
-
 	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
 
 	return &models.OrderListResponse{
-		Orders:     orderResponses,
+		Orders:     orders,
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
@@ -197,7 +179,7 @@ func (os *OrderService) GetActiveOrders(page, pageSize int, orderType string) (*
 }
 
 // CancelOrder 取消订单
-func (os *OrderService) CancelOrder(orderID uint, userAddress string) error {
+func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 	// 查找订单
 	var order models.Order
 	if err := os.db.First(&order, orderID).Error; err != nil {
@@ -205,18 +187,19 @@ func (os *OrderService) CancelOrder(orderID uint, userAddress string) error {
 	}
 
 	// 验证权限
-	if order.Maker != userAddress {
+	if order.Maker == nil || *order.Maker != userAddress {
 		return fmt.Errorf("无权限取消此订单")
 	}
 
 	// 验证状态
-	if order.Status != models.OrderStatusActive {
+	if order.OrderStatus != models.OrderStatusActive {
 		return fmt.Errorf("订单状态不允许取消")
 	}
 
 	// 更新状态
-	order.Status = models.OrderStatusCancelled
-	order.UpdatedAt = time.Now()
+	now := time.Now().Unix()
+	order.OrderStatus = models.OrderStatusCancelled
+	order.UpdateTime = &now
 
 	if err := os.db.Save(&order).Error; err != nil {
 		return fmt.Errorf("更新订单状态失败: %v", err)
@@ -241,18 +224,23 @@ func (os *OrderService) SyncOrderFromChain(orderID uint64) (*models.Order, error
 	}
 
 	// 构建订单模型
+	now := time.Now().Unix()
+	maker := chainOrder["maker"].(string)
+	tokenID := chainOrder["tokenId"].(*big.Int).String()
+	price := float64(chainOrder["price"].(*big.Int).Int64()) / 1e18 // 转换为ETH单位
+	collectionAddress := chainOrder["nftContract"].(string)
+
 	order := &models.Order{
-		OrderID:     orderID,
-		Maker:       chainOrder["maker"].(string),
-		NFTContract: chainOrder["nftContract"].(string),
-		TokenID:     chainOrder["tokenId"].(*big.Int).String(),
-		Price:       chainOrder["price"].(*big.Int).String(),
-		Amount:      chainOrder["amount"].(*big.Int).Uint64(),
-		OrderType:   models.OrderType(chainOrder["orderType"].(uint8)),
-		Status:      models.OrderStatus(chainOrder["status"].(uint8)),
-		Expiration:  time.Unix(chainOrder["expiration"].(*big.Int).Int64(), 0),
-		CreatedAt:   time.Unix(chainOrder["timestamp"].(*big.Int).Int64(), 0),
-		UpdatedAt:   time.Now(),
+		OrderID:           fmt.Sprintf("0x%x", orderID),
+		Maker:             &maker,
+		CollectionAddress: &collectionAddress,
+		TokenID:           &tokenID,
+		Price:             price,
+		OrderType:         models.OrderType(chainOrder["orderType"].(uint8)),
+		OrderStatus:       models.OrderStatus(chainOrder["status"].(uint8)),
+		EventTime:         &now,
+		CreateTime:        &now,
+		UpdateTime:        &now,
 	}
 
 	if err == gorm.ErrRecordNotFound {
@@ -273,10 +261,11 @@ func (os *OrderService) SyncOrderFromChain(orderID uint64) (*models.Order, error
 
 // MarkExpiredOrders 标记过期订单
 func (os *OrderService) MarkExpiredOrders() error {
+	now := time.Now().Unix()
 	result := os.db.Model(&models.Order{}).
-		Where("status = ? AND expiration <= ?", models.OrderStatusActive, time.Now()).
-		Update("status", models.OrderStatusExpired)
-	
+		Where("order_status = ? AND expire_time IS NOT NULL AND expire_time <= ?", models.OrderStatusActive, now).
+		Update("order_status", models.OrderStatusExpired)
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -287,21 +276,21 @@ func (os *OrderService) MarkExpiredOrders() error {
 
 // validateCreateOrderRequest 验证创建订单请求
 func (os *OrderService) validateCreateOrderRequest(req *models.CreateOrderRequest) error {
-	if req.NFTContract == "" {
-		return fmt.Errorf("NFT合约地址不能为空")
+	if req.CollectionAddress == nil || *req.CollectionAddress == "" {
+		return fmt.Errorf("集合地址不能为空")
 	}
 
-	if req.TokenID == "" {
+	if req.TokenID == nil || *req.TokenID == "" {
 		return fmt.Errorf("Token ID不能为空")
 	}
 
-	if req.OrderType == models.OrderTypeLimitSell || req.OrderType == models.OrderTypeMarketSell {
-		if req.Price == "" {
-			return fmt.Errorf("卖单必须指定价格")
+	if req.OrderType == models.OrderTypeListing || req.OrderType == models.OrderTypeOffer {
+		if req.Price <= 0 {
+			return fmt.Errorf("订单必须指定有效价格")
 		}
 	}
 
-	if req.Expiration.Before(time.Now()) {
+	if req.ExpireTime != nil && *req.ExpireTime <= time.Now().Unix() {
 		return fmt.Errorf("过期时间必须在未来")
 	}
 
