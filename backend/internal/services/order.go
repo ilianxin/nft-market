@@ -14,11 +14,11 @@ import (
 // OrderService 订单服务
 type OrderService struct {
 	db                *gorm.DB
-	blockchainService *BlockchainService
+	blockchainService *EnhancedBlockchainService
 }
 
 // NewOrderService 创建新的订单服务
-func NewOrderService(db *gorm.DB, blockchainService *BlockchainService) *OrderService {
+func NewOrderService(db *gorm.DB, blockchainService *EnhancedBlockchainService) *OrderService {
 	return &OrderService{
 		db:                db,
 		blockchainService: blockchainService,

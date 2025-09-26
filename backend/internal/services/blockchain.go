@@ -40,6 +40,10 @@ func NewBlockchainService(rpcURL, contractAddress, privateKeyHex string) (*Block
 	var privateKey *ecdsa.PrivateKey
 	var publicKey common.Address
 	if privateKeyHex != "" {
+		// 移除0x前缀如果存在
+		if strings.HasPrefix(privateKeyHex, "0x") || strings.HasPrefix(privateKeyHex, "0X") {
+			privateKeyHex = privateKeyHex[2:]
+		}
 		privateKey, err = crypto.HexToECDSA(privateKeyHex)
 		if err != nil {
 			return nil, fmt.Errorf("解析私钥失败: %v", err)

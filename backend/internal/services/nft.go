@@ -10,11 +10,11 @@ import (
 // NFTService NFT服务
 type NFTService struct {
 	db                *gorm.DB
-	blockchainService *BlockchainService
+	blockchainService *EnhancedBlockchainService
 }
 
 // NewNFTService 创建新的NFT服务
-func NewNFTService(db *gorm.DB, blockchainService *BlockchainService) *NFTService {
+func NewNFTService(db *gorm.DB, blockchainService *EnhancedBlockchainService) *NFTService {
 	return &NFTService{
 		db:                db,
 		blockchainService: blockchainService,

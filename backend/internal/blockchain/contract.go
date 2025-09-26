@@ -190,7 +190,10 @@ func NewNFTMarketplaceContract(rpcURL, contractAddr, privateKeyHex string) (*NFT
 		return nil, fmt.Errorf("解析合约ABI失败: %v", err)
 	}
 
-	// 解析私钥
+	// 解析私钥（移除0x前缀如果存在）
+	if strings.HasPrefix(privateKeyHex, "0x") || strings.HasPrefix(privateKeyHex, "0X") {
+		privateKeyHex = privateKeyHex[2:]
+	}
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
 		return nil, fmt.Errorf("解析私钥失败: %v", err)
@@ -219,6 +222,26 @@ func NewNFTMarketplaceContract(rpcURL, contractAddr, privateKeyHex string) (*NFT
 		publicKey:       publicKeyECDSA,
 		fromAddress:     fromAddress,
 	}, nil
+}
+
+// Client 获取以太坊客户端
+func (c *NFTMarketplaceContract) Client() *ethclient.Client {
+	return c.client
+}
+
+// ContractAddress 获取合约地址
+func (c *NFTMarketplaceContract) ContractAddress() common.Address {
+	return c.contractAddress
+}
+
+// ContractABI 获取合约ABI
+func (c *NFTMarketplaceContract) ContractABI() abi.ABI {
+	return c.contractABI
+}
+
+// FromAddress 获取发送地址
+func (c *NFTMarketplaceContract) FromAddress() common.Address {
+	return c.fromAddress
 }
 
 // CreateLimitSellOrder 在链上创建限价卖单

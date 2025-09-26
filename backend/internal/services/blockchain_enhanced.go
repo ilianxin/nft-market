@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"nft-market/internal/blockchain"
@@ -54,6 +55,37 @@ func NewEnhancedBlockchainService(rpcURL, contractAddress, privateKey string, db
 	}
 
 	return service, nil
+}
+
+// GetBlockchainStatus 获取区块链服务状态
+func (s *EnhancedBlockchainService) GetBlockchainStatus() map[string]interface{} {
+	header, err := s.contract.Client().HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return map[string]interface{}{
+			"status": "error",
+			"error":  err.Error(),
+		}
+	}
+	return map[string]interface{}{
+		"status":        "running",
+		"latest_block":  header.Number.String(),
+		"contract_addr": s.contract.ContractAddress().Hex(),
+		"timestamp":     time.Now().Unix(),
+	}
+}
+
+// GetBlockNumber 获取最新区块号
+func (s *EnhancedBlockchainService) GetBlockNumber() (*big.Int, error) {
+	header, err := s.contract.Client().HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return header.Number, nil
+}
+
+// GetChainOrderInfo 获取链上订单信息
+func (s *EnhancedBlockchainService) GetChainOrderInfo(orderID uint64) (*blockchain.ContractOrder, error) {
+	return s.contract.GetOrder(orderID)
 }
 
 // CreateOrderOnChain 在区块链上创建订单（增强版）

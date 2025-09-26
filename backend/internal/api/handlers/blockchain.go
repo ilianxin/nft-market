@@ -217,36 +217,10 @@ func (bh *BlockchainHandler) ExecuteOrder(c *gin.Context) {
 
 // GetBlockchainStatus 获取区块链服务状态
 func (bh *BlockchainHandler) GetBlockchainStatus(c *gin.Context) {
-	// 获取最新区块号
-	blockNumber, err := bh.blockchainService.GetBlockNumber()
-	if err != nil {
-		logger.Error("获取区块号失败", err)
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   "get_block_number_failed",
-			Message: "获取区块号失败: " + err.Error(),
-			Code:    500,
-		})
-		return
-	}
-
-	// 获取订单计数器
-	counter, err := bh.blockchainService.GetOrderCounter()
-	if err != nil {
-		logger.Error("获取订单计数器失败", err)
-		counter = nil
-	}
-
-	status := gin.H{
-		"latest_block": blockNumber,
-		"service":      "running",
-	}
-
-	if counter != nil {
-		status["order_counter"] = counter.String()
-	}
-
+	status := bh.blockchainService.GetBlockchainStatus()
+	logger.Info("获取区块链服务状态", logrus.Fields{"status": status["status"]})
 	c.JSON(http.StatusOK, gin.H{
-		"message": "区块链服务状态正常",
+		"message": "区块链服务状态",
 		"data":    status,
 	})
 }
