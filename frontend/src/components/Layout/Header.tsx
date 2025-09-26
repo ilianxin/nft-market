@@ -15,7 +15,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const { account, isConnected, connectWallet, disconnectWallet } = useWeb3();
+  const { account, isConnected, connectWallet, connectTestWallet, disconnectWallet, isTestMode } = useWeb3();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -67,6 +67,19 @@ const Header: React.FC = () => {
           <Button color="inherit" component={Link} to="/create-order">
             创建订单
           </Button>
+          <Button 
+            color="inherit" 
+            component={Link} 
+            to="/test"
+            sx={{ 
+              color: '#ff9800',
+              '&:hover': { 
+                backgroundColor: 'rgba(255, 152, 0, 0.1)' 
+              }
+            }}
+          >
+            API测试
+          </Button>
           
           {isConnected ? (
             <>
@@ -81,7 +94,8 @@ const Header: React.FC = () => {
               >
                 <AccountCircle />
               </IconButton>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {isTestMode && <span style={{ color: '#ff9800', fontSize: '12px' }}>测试</span>}
                 {formatAddress(account!)}
               </Typography>
               <Menu
@@ -104,14 +118,31 @@ const Header: React.FC = () => {
               </Menu>
             </>
           ) : (
-            <Button
-              color="inherit"
-              startIcon={<Wallet />}
-              onClick={connectWallet}
-              variant="outlined"
-            >
-              连接钱包
-            </Button>
+            <>
+              <Button
+                color="inherit"
+                startIcon={<Wallet />}
+                onClick={connectWallet}
+                variant="outlined"
+              >
+                连接钱包
+              </Button>
+              <Button
+                color="inherit"
+                onClick={connectTestWallet}
+                variant="outlined"
+                sx={{ 
+                  borderColor: '#ff9800', 
+                  color: '#ff9800',
+                  '&:hover': { 
+                    borderColor: '#ff9800', 
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)' 
+                  }
+                }}
+              >
+                测试模式
+              </Button>
+            </>
           )}
         </Box>
       </Toolbar>

@@ -90,31 +90,29 @@ func (os *OrderService) CreateOrder(req *models.CreateOrderRequest, maker string
 
 		// 异步创建链上订单，避免阻塞用户操作
 		go func() {
-			if enhancedService, ok := os.blockchainService.(*EnhancedBlockchainService); ok {
-				tx, err := enhancedService.CreateOrderOnChain(order)
-				if err != nil {
-					logger.Error("链上创建订单失败", err, logrus.Fields{
-						"order_id": order.OrderID,
-					})
-					return
-				}
-
-				// 等待交易确认
-				receipt, err := enhancedService.WaitForTransactionConfirmation(tx, 5*time.Minute)
-				if err != nil {
-					logger.Error("等待交易确认失败", err, logrus.Fields{
-						"order_id": order.OrderID,
-						"tx_hash":  tx.Hash().Hex(),
-					})
-					return
-				}
-
-				logger.Info("链上订单创建并确认成功", logrus.Fields{
-					"order_id":     order.OrderID,
-					"tx_hash":      tx.Hash().Hex(),
-					"block_number": receipt.BlockNumber.String(),
+			tx, err := os.blockchainService.CreateOrderOnChain(order)
+			if err != nil {
+				logger.Error("链上创建订单失败", err, logrus.Fields{
+					"order_id": order.OrderID,
 				})
+				return
 			}
+
+			// 等待交易确认
+			receipt, err := os.blockchainService.WaitForTransactionConfirmation(tx, 5*time.Minute)
+			if err != nil {
+				logger.Error("等待交易确认失败", err, logrus.Fields{
+					"order_id": order.OrderID,
+					"tx_hash":  tx.Hash().Hex(),
+				})
+				return
+			}
+
+			logger.Info("链上订单创建并确认成功", logrus.Fields{
+				"order_id":     order.OrderID,
+				"tx_hash":      tx.Hash().Hex(),
+				"block_number": receipt.BlockNumber.String(),
+			})
 		}()
 	}
 
@@ -271,31 +269,29 @@ func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 
 		// 异步取消链上订单
 		go func() {
-			if enhancedService, ok := os.blockchainService.(*EnhancedBlockchainService); ok {
-				tx, err := enhancedService.CancelOrderOnChain(orderID)
-				if err != nil {
-					logger.Error("链上取消订单失败", err, logrus.Fields{
-						"order_id": orderID,
-					})
-					return
-				}
-
-				// 等待交易确认
-				receipt, err := enhancedService.WaitForTransactionConfirmation(tx, 2*time.Minute)
-				if err != nil {
-					logger.Error("等待取消交易确认失败", err, logrus.Fields{
-						"order_id": orderID,
-						"tx_hash":  tx.Hash().Hex(),
-					})
-					return
-				}
-
-				logger.Info("链上订单取消并确认成功", logrus.Fields{
-					"order_id":     orderID,
-					"tx_hash":      tx.Hash().Hex(),
-					"block_number": receipt.BlockNumber.String(),
+			tx, err := os.blockchainService.CancelOrderOnChain(orderID)
+			if err != nil {
+				logger.Error("链上取消订单失败", err, logrus.Fields{
+					"order_id": orderID,
 				})
+				return
 			}
+
+			// 等待交易确认
+			receipt, err := os.blockchainService.WaitForTransactionConfirmation(tx, 2*time.Minute)
+			if err != nil {
+				logger.Error("等待取消交易确认失败", err, logrus.Fields{
+					"order_id": orderID,
+					"tx_hash":  tx.Hash().Hex(),
+				})
+				return
+			}
+
+			logger.Info("链上订单取消并确认成功", logrus.Fields{
+				"order_id":     orderID,
+				"tx_hash":      tx.Hash().Hex(),
+				"block_number": receipt.BlockNumber.String(),
+			})
 		}()
 	}
 

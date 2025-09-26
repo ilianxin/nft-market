@@ -7,9 +7,11 @@ interface Web3ContextType {
   signer: ethers.JsonRpcSigner | null;
   isConnected: boolean;
   connectWallet: () => Promise<void>;
+  connectTestWallet: () => void;
   disconnectWallet: () => void;
   switchNetwork: (chainId: string) => Promise<void>;
   chainId: string | null;
+  isTestMode: boolean;
 }
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
+  const [isTestMode, setIsTestMode] = useState<boolean>(false);
 
   const isConnected = account !== null;
 
@@ -31,6 +34,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     setProvider(null);
     setSigner(null);
     setChainId(null);
+    setIsTestMode(false);
   }, []);
 
   const handleAccountsChanged = useCallback((accounts: string[]) => {
@@ -129,15 +133,37 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     }
   };
 
+  // 测试模式连接（使用Hardhat测试账户）
+  const connectTestWallet = () => {
+    const testAccounts = [
+      '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // Account #0
+      '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // Account #1
+      '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Account #2
+    ];
+    
+    const selectedAccount = testAccounts[0]; // 使用第一个测试账户
+    
+    setAccount(selectedAccount);
+    setChainId('31337'); // Hardhat链ID
+    setIsTestMode(true);
+    
+    // 保存到localStorage供API使用
+    localStorage.setItem('userAddress', selectedAccount);
+    
+    console.log('测试模式已启用，使用账户:', selectedAccount);
+  };
+
   const value: Web3ContextType = {
     account,
     provider,
     signer,
     isConnected,
     connectWallet,
+    connectTestWallet,
     disconnectWallet,
     switchNetwork,
     chainId,
+    isTestMode,
   };
 
   return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;

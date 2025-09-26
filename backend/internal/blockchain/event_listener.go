@@ -131,14 +131,14 @@ func (el *EventListener) syncHistoricalEvents(toBlock uint64) {
 
 	// 获取数据库中最后处理的区块号
 	var lastSyncedBlock uint64 = 0
-	
+
 	// 这里可以从数据库中获取上次同步的区块号
 	// 暂时从创世块开始同步
 	fromBlock := lastSyncedBlock
 
 	// 分批同步，每次同步1000个区块
 	batchSize := uint64(1000)
-	
+
 	for from := fromBlock; from <= toBlock; from += batchSize {
 		to := from + batchSize - 1
 		if to > toBlock {
@@ -216,10 +216,10 @@ func (el *EventListener) processLog(vLog types.Log) error {
 
 	// OrderCreated事件签名: keccak256("OrderCreated(uint256,address,address,uint256,uint256,uint8)")
 	orderCreatedSig := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef") // 实际需要计算
-	
+
 	// OrderFilled事件签名: keccak256("OrderFilled(uint256,address,address,uint256)")
 	orderFilledSig := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890") // 实际需要计算
-	
+
 	// OrderCancelled事件签名: keccak256("OrderCancelled(uint256,address)")
 	orderCancelledSig := common.HexToHash("0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321") // 实际需要计算
 
@@ -336,17 +336,20 @@ func (el *EventListener) handleOrderFilledEvent(vLog types.Log, tx *types.Transa
 
 	// 创建活动记录
 	now := time.Now().Unix()
+	sellerHex := event.Seller.Hex()
+	buyerHex := event.Buyer.Hex()
+	txHashHex := tx.Hash().Hex()
 	activity := &models.Activity{
-		ActivityType:      models.ActivityTypeBuy,
-		Maker:             &event.Seller.Hex(),
-		Taker:             &event.Buyer.Hex(),
-		Price:             float64(event.Price.Int64()) / 1e18,
-		TxHash:            &tx.Hash().Hex(),
-		BlockNumber:       int64(receipt.BlockNumber.Uint64()),
-		EventTime:         &now,
-		CreateTime:        &now,
-		UpdateTime:        &now,
-		CurrencyAddress:   "1", // ETH
+		ActivityType:    models.ActivityTypeBuy,
+		Maker:           &sellerHex,
+		Taker:           &buyerHex,
+		Price:           float64(event.Price.Int64()) / 1e18,
+		TxHash:          &txHashHex,
+		BlockNumber:     int64(receipt.BlockNumber.Uint64()),
+		EventTime:       &now,
+		CreateTime:      &now,
+		UpdateTime:      &now,
+		CurrencyAddress: "1", // ETH
 	}
 
 	if err := el.db.Create(activity).Error; err != nil {
@@ -385,10 +388,12 @@ func (el *EventListener) handleOrderCancelledEvent(vLog types.Log, tx *types.Tra
 
 	// 创建活动记录
 	now := time.Now().Unix()
+	makerHex := event.Maker.Hex()
+	txHashHex := tx.Hash().Hex()
 	activity := &models.Activity{
 		ActivityType: models.ActivityTypeCancelListing,
-		Maker:        &event.Maker.Hex(),
-		TxHash:       &tx.Hash().Hex(),
+		Maker:        &makerHex,
+		TxHash:       &txHashHex,
 		BlockNumber:  int64(receipt.BlockNumber.Uint64()),
 		EventTime:    &now,
 		CreateTime:   &now,
@@ -469,32 +474,34 @@ func (el *EventListener) parseOrderCancelledEvent(vLog types.Log) (*OrderCancell
 // createOrUpdateItemFromEvent 从事件创建或更新Item记录
 func (el *EventListener) createOrUpdateItemFromEvent(event *OrderCreatedEvent, now int64) error {
 	var item models.Item
-	
+
 	// 检查Item是否已存在
-	err := el.db.Where("collection_address = ? AND token_id = ?", 
+	err := el.db.Where("collection_address = ? AND token_id = ?",
 		event.NftContract.Hex(), event.TokenId.String()).First(&item).Error
-	
+
 	if err == gorm.ErrRecordNotFound {
 		// 创建新的Item记录
+		makerHex := event.Maker.Hex()
+		contractHex := event.NftContract.Hex()
 		item = models.Item{
 			ChainID:           models.ChainIDEthereum,
 			TokenID:           event.TokenId.String(),
 			Name:              fmt.Sprintf("NFT #%s", event.TokenId.String()),
-			Owner:             &event.Maker.Hex(),
-			CollectionAddress: &event.NftContract.Hex(),
+			Owner:             &makerHex,
+			CollectionAddress: &contractHex,
 			Creator:           event.Maker.Hex(),
 			Supply:            1,
 			CreateTime:        &now,
 			UpdateTime:        &now,
 		}
-		
+
 		// 如果是上架订单，设置价格
 		if event.OrderType == 0 { // LimitSell
 			price := float64(event.Price.Int64()) / 1e18
 			item.ListPrice = &price
 			item.ListTime = &now
 		}
-		
+
 		return el.db.Create(&item).Error
 	} else if err != nil {
 		return err
@@ -503,13 +510,13 @@ func (el *EventListener) createOrUpdateItemFromEvent(event *OrderCreatedEvent, n
 		updateData := map[string]interface{}{
 			"update_time": now,
 		}
-		
+
 		if event.OrderType == 0 { // LimitSell
 			price := float64(event.Price.Int64()) / 1e18
 			updateData["list_price"] = price
 			updateData["list_time"] = now
 		}
-		
+
 		return el.db.Model(&item).Updates(updateData).Error
 	}
 }
@@ -517,7 +524,7 @@ func (el *EventListener) createOrUpdateItemFromEvent(event *OrderCreatedEvent, n
 // createActivityFromOrderEvent 从订单事件创建活动记录
 func (el *EventListener) createActivityFromOrderEvent(event *OrderCreatedEvent, tx *types.Transaction, receipt *types.Receipt, now int64) error {
 	var activityType models.ActivityType
-	
+
 	switch event.OrderType {
 	case 0: // LimitSell
 		activityType = models.ActivityTypeList
@@ -527,13 +534,17 @@ func (el *EventListener) createActivityFromOrderEvent(event *OrderCreatedEvent, 
 		activityType = models.ActivityTypeList
 	}
 
+	makerHex := event.Maker.Hex()
+	contractHex := event.NftContract.Hex()
+	tokenIdStr := event.TokenId.String()
+	txHashHex := tx.Hash().Hex()
 	activity := &models.Activity{
 		ActivityType:      activityType,
-		Maker:             &event.Maker.Hex(),
-		CollectionAddress: &event.NftContract.Hex(),
-		TokenID:           &event.TokenId.String(),
+		Maker:             &makerHex,
+		CollectionAddress: &contractHex,
+		TokenID:           &tokenIdStr,
 		Price:             float64(event.Price.Int64()) / 1e18,
-		TxHash:            &tx.Hash().Hex(),
+		TxHash:            &txHashHex,
 		BlockNumber:       int64(receipt.BlockNumber.Uint64()),
 		EventTime:         &now,
 		CreateTime:        &now,

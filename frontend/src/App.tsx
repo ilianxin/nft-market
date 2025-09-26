@@ -10,6 +10,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import CreateOrderPage from './pages/CreateOrderPage';
 import CollectionsPage from './pages/CollectionsPage';
 import ActivitiesPage from './pages/ActivitiesPage';
+import TestPage from './pages/TestPage';
 import './App.css';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="/nft/:contract/:tokenId" element={<NFTDetailPage />} />
             <Route path="/profile/:address" element={<UserProfilePage />} />
             <Route path="/create-order" element={<CreateOrderPage />} />
+            <Route path="/test" element={<TestPage />} />
           </Routes>
         </Container>
       </main>
