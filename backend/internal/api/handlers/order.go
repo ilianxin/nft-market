@@ -252,6 +252,71 @@ func (oh *OrderHandler) CancelOrder(c *gin.Context) {
 	})
 }
 
+// PurchaseOrder 购买订单
+func (oh *OrderHandler) PurchaseOrder(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		logger.Warn("购买订单请求ID无效", logrus.Fields{"id_str": idStr, "error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_id",
+			Message: "无效的订单ID",
+			Code:    400,
+		})
+		return
+	}
+
+	// 从请求头或认证中获取用户地址
+	userAddress := c.GetHeader("X-User-Address")
+	if userAddress == "" {
+		logger.Warn("购买订单用户未认证", nil)
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "unauthorized",
+			Message: "用户未认证",
+			Code:    401,
+		})
+		return
+	}
+
+	// 解析请求体（可选的价格参数）
+	var req struct {
+		Price float64 `json:"price"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 如果没有请求体，使用默认价格0（表示接受订单原价）
+		req.Price = 0
+	}
+
+	logger.Info("开始处理购买订单请求", logrus.Fields{
+		"order_id":      id,
+		"user_address":  userAddress,
+		"offered_price": req.Price,
+	})
+
+	// 调用服务层处理购买逻辑
+	err = oh.orderService.PurchaseOrder(id, userAddress, req.Price)
+	if err != nil {
+		logger.Error("购买订单失败", err, logrus.Fields{
+			"order_id":     id,
+			"user_address": userAddress,
+		})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "purchase_order_failed",
+			Message: "购买订单失败: " + err.Error(),
+			Code:    500,
+		})
+		return
+	}
+
+	logger.Info("订单购买成功", logrus.Fields{
+		"order_id":     id,
+		"user_address": userAddress,
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "订单购买成功",
+	})
+}
+
 // SyncOrderFromChain 从链上同步订单
 func (oh *OrderHandler) SyncOrderFromChain(c *gin.Context) {
 	orderIDStr := c.Param("orderid")

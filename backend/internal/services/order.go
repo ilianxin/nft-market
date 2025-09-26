@@ -298,6 +298,200 @@ func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 	return nil
 }
 
+// PurchaseOrder 购买订单
+func (os *OrderService) PurchaseOrder(orderID uint64, buyerAddress string, offeredPrice float64) error {
+	// 查找订单
+	var order models.Order
+	if err := os.db.First(&order, orderID).Error; err != nil {
+		return fmt.Errorf("订单不存在: %v", err)
+	}
+
+	// 验证订单状态
+	if order.OrderStatus != models.OrderStatusActive {
+		return fmt.Errorf("订单状态不允许购买，当前状态: %d", order.OrderStatus)
+	}
+
+	// 验证订单类型（只能购买卖单）
+	if order.OrderType != models.OrderTypeListing {
+		return fmt.Errorf("只能购买上架订单（listing），当前订单类型: %d", order.OrderType)
+	}
+
+	// 验证买家不是卖家
+	if order.Maker == buyerAddress {
+		return fmt.Errorf("不能购买自己的订单")
+	}
+
+	// 验证价格（如果提供了价格，必须匹配或更高）
+	if offeredPrice > 0 && offeredPrice < order.Price {
+		return fmt.Errorf("出价过低，订单价格: %.6f ETH，您的出价: %.6f ETH", order.Price, offeredPrice)
+	}
+
+	// 检查订单是否过期
+	if order.ExpireTime != nil && time.Now().Unix() > *order.ExpireTime {
+		return fmt.Errorf("订单已过期")
+	}
+
+	logger.Info("开始处理订单购买", logrus.Fields{
+		"order_id":      orderID,
+		"buyer":         buyerAddress,
+		"seller":        order.Maker,
+		"price":         order.Price,
+		"offered_price": offeredPrice,
+	})
+
+	// 开始数据库事务
+	tx := os.db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("开始事务失败: %v", tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 更新订单状态
+	now := time.Now().Unix()
+	updateData := map[string]interface{}{
+		"order_status": models.OrderStatusFilled,
+		"taker":        buyerAddress,
+		"update_time":  now,
+	}
+
+	if err := tx.Model(&order).Updates(updateData).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("更新订单状态失败: %v", err)
+	}
+
+	// 更新Item的拥有者
+	if err := os.updateItemOwner(tx, order.CollectionAddress, order.TokenID, buyerAddress, now); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("更新物品拥有者失败: %v", err)
+	}
+
+	// 创建交易活动记录
+	if err := os.createPurchaseActivity(tx, &order, buyerAddress, now); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("创建交易活动记录失败: %v", err)
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("提交事务失败: %v", err)
+	}
+
+	// 在区块链上执行订单（异步）
+	if os.blockchainService != nil {
+		logger.Info("开始在区块链上执行订单", logrus.Fields{
+			"order_id": orderID,
+		})
+
+		// 异步执行链上订单
+		go func() {
+			finalPrice := order.Price
+			if offeredPrice > 0 {
+				finalPrice = offeredPrice
+			}
+
+			tx, err := os.blockchainService.ExecuteOrderOnChain(orderID, finalPrice)
+			if err != nil {
+				logger.Error("链上执行订单失败", err, logrus.Fields{
+					"order_id": orderID,
+				})
+				return
+			}
+
+			// 等待交易确认
+			receipt, err := os.blockchainService.WaitForTransactionConfirmation(tx, 5*time.Minute)
+			if err != nil {
+				logger.Error("等待执行交易确认失败", err, logrus.Fields{
+					"order_id": orderID,
+					"tx_hash":  tx.Hash().Hex(),
+				})
+				return
+			}
+
+			logger.Info("链上订单执行并确认成功", logrus.Fields{
+				"order_id":     orderID,
+				"tx_hash":      tx.Hash().Hex(),
+				"block_number": receipt.BlockNumber.String(),
+			})
+		}()
+	}
+
+	logger.Info("订单购买成功", logrus.Fields{
+		"order_id": orderID,
+		"buyer":    buyerAddress,
+		"seller":   order.Maker,
+		"price":    order.Price,
+	})
+
+	return nil
+}
+
+// updateItemOwner 更新物品拥有者
+func (os *OrderService) updateItemOwner(tx *gorm.DB, collectionAddress, tokenID, newOwner string, now int64) error {
+	updateData := map[string]interface{}{
+		"owner":       newOwner,
+		"list_price":  nil, // 清除上架价格
+		"list_time":   nil, // 清除上架时间
+		"update_time": now,
+	}
+
+	result := tx.Model(&models.Item{}).
+		Where("collection_address = ? AND token_id = ?", collectionAddress, tokenID).
+		Updates(updateData)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		logger.Warn("未找到要更新的Item记录", logrus.Fields{
+			"collection_address": collectionAddress,
+			"token_id":           tokenID,
+		})
+	} else {
+		logger.Info("Item拥有者更新成功", logrus.Fields{
+			"collection_address": collectionAddress,
+			"token_id":           tokenID,
+			"new_owner":          newOwner,
+		})
+	}
+
+	return nil
+}
+
+// createPurchaseActivity 创建购买活动记录
+func (os *OrderService) createPurchaseActivity(tx *gorm.DB, order *models.Order, buyer string, now int64) error {
+	activity := &models.Activity{
+		ActivityType:      models.ActivityTypeBuy,
+		Maker:             &order.Maker,
+		Taker:             &buyer,
+		CollectionAddress: &order.CollectionAddress,
+		TokenID:           &order.TokenID,
+		Price:             order.Price,
+		BlockNumber:       0, // 链上确认后会更新
+		EventTime:         &now,
+		CreateTime:        &now,
+		UpdateTime:        &now,
+		CurrencyAddress:   "1", // ETH
+	}
+
+	if err := tx.Create(activity).Error; err != nil {
+		return err
+	}
+
+	logger.Info("购买活动记录创建成功", logrus.Fields{
+		"order_id": order.ID,
+		"buyer":    buyer,
+		"seller":   order.Maker,
+		"price":    order.Price,
+	})
+
+	return nil
+}
+
 // SyncOrderFromChain 从链上同步订单信息
 func (os *OrderService) SyncOrderFromChain(orderID uint64) (*models.Order, error) {
 	// 从链上获取订单信息

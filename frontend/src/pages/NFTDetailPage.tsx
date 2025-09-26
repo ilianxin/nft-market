@@ -20,10 +20,14 @@ import {
 import { useParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { apiService } from '../services/api';
+import { useWeb3 } from '../contexts/Web3Context';
+import logger from '../utils/logger';
 
 const NFTDetailPage: React.FC = () => {
   const { contract, tokenId } = useParams<{ contract: string; tokenId: string }>();
+  const { account, isConnected } = useWeb3();
   const [selectedOrderType, setSelectedOrderType] = useState<'sell' | 'buy'>('sell');
+  const [purchasing, setPurchasing] = useState(false);
 
   // 获取物品信息
   const { data: itemData, isLoading: itemLoading } = useQuery(
@@ -92,6 +96,35 @@ const NFTDetailPage: React.FC = () => {
   const bestBuyPrice = buyOrders
     .filter((order: any) => order.order_status === 0) // 活跃状态
     .sort((a: any, b: any) => b.price - a.price)[0];
+
+  // 购买订单处理函数
+  const handlePurchaseOrder = async (orderId: number, orderPrice: number) => {
+    if (!isConnected || !account) {
+      alert('请先连接钱包');
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      logger.info('开始购买订单', { orderId, orderPrice, buyer: account });
+      
+      // 保存用户地址到localStorage供API使用
+      localStorage.setItem('userAddress', account);
+      
+      const response = await apiService.purchaseOrder(orderId, orderPrice);
+      logger.info('购买订单成功', response);
+      
+      alert('购买成功！交易正在区块链上处理...');
+      
+      // 刷新数据
+      window.location.reload();
+    } catch (error: any) {
+      logger.error('购买订单失败', error);
+      alert(`购买失败: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   if (!contract || !tokenId) {
     return (
@@ -183,8 +216,17 @@ const NFTDetailPage: React.FC = () => {
                   color="success"
                   fullWidth
                   size="large"
+                  disabled={purchasing || !isConnected}
+                  onClick={() => handlePurchaseOrder(bestSellPrice.id, bestSellPrice.price)}
                 >
-                  立即购买 {formatPrice(bestSellPrice.price)}
+                  {purchasing ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      购买中...
+                    </>
+                  ) : (
+                    `立即购买 ${formatPrice(bestSellPrice.price)}`
+                  )}
                 </Button>
               )}
               {bestBuyPrice && (
@@ -270,8 +312,22 @@ const NFTDetailPage: React.FC = () => {
                                     size="small"
                                     variant="outlined"
                                     color={selectedOrderType === 'sell' ? 'success' : 'error'}
+                                    disabled={purchasing || !isConnected}
+                                    onClick={() => {
+                                      if (selectedOrderType === 'sell') {
+                                        // 购买卖单
+                                        handlePurchaseOrder(order.id, order.price);
+                                      } else {
+                                        // TODO: 实现出售给买单的逻辑
+                                        alert('出售功能即将推出');
+                                      }
+                                    }}
                                   >
-                                    {selectedOrderType === 'sell' ? '购买' : '出售'}
+                                    {purchasing ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      selectedOrderType === 'sell' ? '购买' : '出售'
+                                    )}
                                   </Button>
                                 )}
                               </TableCell>

@@ -107,6 +107,14 @@ export const apiService = {
     return response.data;
   },
 
+  // 购买订单
+  purchaseOrder: async (orderID: number, price?: number) => {
+    const response = await api.post(`/orders/${orderID}/purchase`, {
+      price: price || 0
+    });
+    return response.data;
+  },
+
   // 物品相关API (原NFT API)
   getItems: async (page: number = 1, pageSize: number = 20) => {
     const response = await api.get('/items', {

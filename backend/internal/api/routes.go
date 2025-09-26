@@ -35,6 +35,7 @@ func SetupRoutes(router *gin.Engine, orderService *services.OrderService, nftSer
 			orders.GET("", orderHandler.GetOrders)                                      // 获取订单列表
 			orders.GET("/:id", orderHandler.GetOrderByID)                               // 获取单个订单
 			orders.PUT("/:id/cancel", orderHandler.CancelOrder)                         // 取消订单
+			orders.POST("/:id/purchase", orderHandler.PurchaseOrder)                    // 购买订单
 			orders.GET("/user/:address", orderHandler.GetUserOrders)                    // 获取用户订单
 			orders.GET("/nft/:collection_address/:token_id", orderHandler.GetNFTOrders) // 获取NFT订单
 			orders.POST("/sync/:orderid", orderHandler.SyncOrderFromChain)              // 从链上同步订单

@@ -91,6 +91,31 @@ const TestPage: React.FC = () => {
       test: () => apiService.createOrder(testOrderData)
     },
     {
+      name: '购买订单',
+      test: async () => {
+        // 先获取订单列表，找到一个可购买的订单
+        const ordersResponse = await apiService.getOrders();
+        const orders = ordersResponse?.data?.orders || [];
+        const buyableOrder = orders.find((order: any) => 
+          order.order_status === 0 && 
+          order.order_type === 1 && 
+          order.maker !== '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+        );
+        
+        if (!buyableOrder) {
+          // 如果没有可购买的订单，创建一个测试订单
+          await apiService.createOrder({
+            ...testOrderData,
+            order_type: 1, // listing
+            price: 0.1
+          });
+          throw new Error('没有找到可购买的订单，已创建测试订单，请重新测试购买功能');
+        }
+        
+        return apiService.purchaseOrder(buyableOrder.id, buyableOrder.price);
+      }
+    },
+    {
       name: '获取物品列表',
       test: () => apiService.getItems()
     },
@@ -151,20 +176,21 @@ const TestPage: React.FC = () => {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h3" gutterBottom>
-        🧪 API测试页面
-      </Typography>
-      
-      <Alert severity="info" sx={{ mb: 3 }}>
-        这个页面可以在不连接MetaMask的情况下测试所有API功能。
-        使用Hardhat测试账户进行模拟操作。
-      </Alert>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Container maxWidth="lg" sx={{ py: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Typography variant="h4" gutterBottom>
+          🧪 API测试页面
+        </Typography>
+        
+        <Alert severity="info" sx={{ mb: 2 }}>
+          这个页面可以在不连接MetaMask的情况下测试所有API功能。
+          使用Hardhat测试账户进行模拟操作。
+        </Alert>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
+        <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: 'fit-content' }}>
+              <CardContent>
               <Typography variant="h6" gutterBottom>
                 🛠️ 测试控制
               </Typography>
@@ -214,69 +240,93 @@ const TestPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                📝 测试订单数据
-              </Typography>
-              <TextField
-                label="合约地址"
-                value={testOrderData.collection_address}
-                onChange={(e) => setTestOrderData(prev => ({ ...prev, collection_address: e.target.value }))}
-                fullWidth
-                margin="dense"
-                size="small"
-              />
-              <TextField
-                label="Token ID"
-                value={testOrderData.token_id}
-                onChange={(e) => setTestOrderData(prev => ({ ...prev, token_id: e.target.value }))}
-                fullWidth
-                margin="dense"
-                size="small"
-              />
-              <TextField
-                label="价格 (ETH)"
-                type="number"
-                value={testOrderData.price}
-                onChange={(e) => setTestOrderData(prev => ({ ...prev, price: parseFloat(e.target.value) }))}
-                fullWidth
-                margin="dense"
-                size="small"
-              />
-            </CardContent>
-          </Card>
-        </Grid>
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  📝 测试订单数据
+                </Typography>
+                <TextField
+                  label="合约地址"
+                  value={testOrderData.collection_address}
+                  onChange={(e) => setTestOrderData(prev => ({ ...prev, collection_address: e.target.value }))}
+                  fullWidth
+                  margin="dense"
+                  size="small"
+                />
+                <TextField
+                  label="Token ID"
+                  value={testOrderData.token_id}
+                  onChange={(e) => setTestOrderData(prev => ({ ...prev, token_id: e.target.value }))}
+                  fullWidth
+                  margin="dense"
+                  size="small"
+                />
+                <TextField
+                  label="价格 (ETH)"
+                  type="number"
+                  value={testOrderData.price}
+                  onChange={(e) => setTestOrderData(prev => ({ ...prev, price: parseFloat(e.target.value) }))}
+                  fullWidth
+                  margin="dense"
+                  size="small"
+                />
+                <Box sx={{ mt: 2, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
+                  <Typography variant="caption" color="info.dark">
+                    💡 购买测试提示：购买功能会自动寻找可购买的订单，如果没有找到会先创建一个测试订单。
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
-        <Grid item xs={12} md={8}>
-          <Typography variant="h6" gutterBottom>
-            📊 测试结果
-          </Typography>
+          <Grid item xs={12} md={8} sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Typography variant="h6" gutterBottom>
+              📊 测试结果
+            </Typography>
           
-          {Object.keys(results).length === 0 ? (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary">
-                还没有测试结果。点击左侧按钮开始测试。
-              </Typography>
-            </Paper>
-          ) : (
-            <Box>
-              {Object.entries(results).map(([testName, result]) => 
-                renderResult(testName, result)
-              )}
-            </Box>
-          )}
+            {Object.keys(results).length === 0 ? (
+              <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="body1" color="text.secondary">
+                  还没有测试结果。点击左侧按钮开始测试。
+                </Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                pr: 1,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: '#f1f1f1',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#c1c1c1',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  backgroundColor: '#a8a8a8',
+                },
+              }}>
+                {Object.entries(results).map(([testName, result]) => 
+                  renderResult(testName, result)
+                )}
+              </Box>
+            )}
+          </Grid>
         </Grid>
-      </Grid>
 
-      <Box sx={{ mt: 4 }}>
-        <Alert severity="warning">
-          <Typography variant="body2">
-            <strong>注意：</strong> 确保后端服务已启动 (localhost:8080) 并且本地以太坊网络正在运行 (localhost:8545)
-          </Typography>
-        </Alert>
-      </Box>
-    </Container>
+        <Box sx={{ mt: 2, flexShrink: 0 }}>
+          <Alert severity="warning">
+            <Typography variant="body2">
+              <strong>注意：</strong> 确保后端服务已启动 (localhost:8080) 并且本地以太坊网络正在运行 (localhost:8545)
+            </Typography>
+          </Alert>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

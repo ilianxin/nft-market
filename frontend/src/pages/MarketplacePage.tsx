@@ -15,6 +15,8 @@ import {
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { apiService } from '../services/api';
+import { useWeb3 } from '../contexts/Web3Context';
+import logger from '../utils/logger';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -39,8 +41,10 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const MarketplacePage: React.FC = () => {
+  const { account, isConnected } = useWeb3();
   const [tabValue, setTabValue] = useState(0);
   const [page, setPage] = useState(1);
+  const [purchasing, setPurchasing] = useState(false);
   const pageSize = 12;
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -50,6 +54,35 @@ const MarketplacePage: React.FC = () => {
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
+  };
+
+  // 购买订单处理函数
+  const handlePurchaseOrder = async (orderId: number, orderPrice: number) => {
+    if (!isConnected || !account) {
+      alert('请先连接钱包');
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      logger.info('开始购买订单', { orderId, orderPrice, buyer: account });
+      
+      // 保存用户地址到localStorage供API使用
+      localStorage.setItem('userAddress', account);
+      
+      const response = await apiService.purchaseOrder(orderId, orderPrice);
+      logger.info('购买订单成功', response);
+      
+      alert('购买成功！交易正在区块链上处理...');
+      
+      // 刷新数据
+      window.location.reload();
+    } catch (error: any) {
+      logger.error('购买订单失败', error);
+      alert(`购买失败: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   // 获取活跃订单
@@ -236,16 +269,32 @@ const MarketplacePage: React.FC = () => {
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           卖家: {formatAddress(order.maker || '')}
                         </Typography>
-                        <Button
-                          fullWidth
-                          variant="contained"
-                          color="success"
-                          component={Link}
-                          to={`/nft/${order.collection_address}/${order.token_id}`}
-                          sx={{ mt: 2 }}
-                        >
-                          立即购买
-                        </Button>
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            component={Link}
+                            to={`/nft/${order.collection_address}/${order.token_id}`}
+                            sx={{ flex: 1 }}
+                          >
+                            查看详情
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            disabled={purchasing || !isConnected}
+                            onClick={() => handlePurchaseOrder(order.id, order.price)}
+                            sx={{ flex: 1 }}
+                          >
+                            {purchasing ? (
+                              <>
+                                <CircularProgress size={16} sx={{ mr: 1 }} />
+                                购买中
+                              </>
+                            ) : (
+                              '立即购买'
+                            )}
+                          </Button>
+                        </Box>
                       </CardContent>
                     </Card>
                   </Grid>
