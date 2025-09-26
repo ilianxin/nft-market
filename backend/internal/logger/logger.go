@@ -172,9 +172,9 @@ func Warn(msg string, fields ...logrus.Fields) {
 
 // Debug 记录调试日志
 func Debug(msg string, fields ...logrus.Fields) {
-	entry := Logger
 	if len(fields) > 0 {
-		entry = Logger.WithFields(fields[0])
+		Logger.WithFields(fields[0]).Debug(msg)
+	} else {
+		Logger.Debug(msg)
 	}
-	entry.Debug(msg)
 }

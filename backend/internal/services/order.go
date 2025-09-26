@@ -3,9 +3,11 @@ package services
 import (
 	"fmt"
 	"math/big"
+	"nft-market/internal/logger"
 	"nft-market/internal/models"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +44,7 @@ func (os *OrderService) CreateOrder(req *models.CreateOrderRequest, maker string
 		CollectionAddress: req.CollectionAddress,
 		TokenID:           req.TokenID,
 		Price:             req.Price,
-		Maker:             &maker,
+		Maker:             maker,
 		QuantityRemaining: req.QuantityRemaining,
 		Size:              req.Size,
 		CurrencyAddress:   req.CurrencyAddress,
@@ -52,13 +54,69 @@ func (os *OrderService) CreateOrder(req *models.CreateOrderRequest, maker string
 		UpdateTime:        &now,
 	}
 
-	// 保存到数据库
-	if err := os.db.Create(order).Error; err != nil {
+	// 开始数据库事务
+	tx := os.db.Begin()
+	if tx.Error != nil {
+		return nil, fmt.Errorf("开始事务失败: %v", tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 保存订单到数据库
+	if err := tx.Create(order).Error; err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("保存订单到数据库失败: %v", err)
 	}
 
-	// 如果需要，可以在这里调用区块链创建订单
-	// 这里简化处理，实际项目中可能需要监听区块链事件
+	// 创建或更新Item记录
+	if err := os.createOrUpdateItem(tx, req, maker, now); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("创建Item记录失败: %v", err)
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("提交事务失败: %v", err)
+	}
+
+	// 在区块链上创建订单
+	if os.blockchainService != nil {
+		logger.Info("开始在区块链上创建订单", logrus.Fields{
+			"order_id": order.OrderID,
+		})
+
+		// 异步创建链上订单，避免阻塞用户操作
+		go func() {
+			if enhancedService, ok := os.blockchainService.(*EnhancedBlockchainService); ok {
+				tx, err := enhancedService.CreateOrderOnChain(order)
+				if err != nil {
+					logger.Error("链上创建订单失败", err, logrus.Fields{
+						"order_id": order.OrderID,
+					})
+					return
+				}
+
+				// 等待交易确认
+				receipt, err := enhancedService.WaitForTransactionConfirmation(tx, 5*time.Minute)
+				if err != nil {
+					logger.Error("等待交易确认失败", err, logrus.Fields{
+						"order_id": order.OrderID,
+						"tx_hash":  tx.Hash().Hex(),
+					})
+					return
+				}
+
+				logger.Info("链上订单创建并确认成功", logrus.Fields{
+					"order_id":     order.OrderID,
+					"tx_hash":      tx.Hash().Hex(),
+					"block_number": receipt.BlockNumber.String(),
+				})
+			}
+		}()
+	}
 
 	return order, nil
 }
@@ -187,7 +245,7 @@ func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 	}
 
 	// 验证权限
-	if order.Maker == nil || *order.Maker != userAddress {
+	if order.Maker != userAddress {
 		return fmt.Errorf("无权限取消此订单")
 	}
 
@@ -203,6 +261,42 @@ func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 
 	if err := os.db.Save(&order).Error; err != nil {
 		return fmt.Errorf("更新订单状态失败: %v", err)
+	}
+
+	// 在区块链上取消订单
+	if os.blockchainService != nil {
+		logger.Info("开始在区块链上取消订单", logrus.Fields{
+			"order_id": orderID,
+		})
+
+		// 异步取消链上订单
+		go func() {
+			if enhancedService, ok := os.blockchainService.(*EnhancedBlockchainService); ok {
+				tx, err := enhancedService.CancelOrderOnChain(orderID)
+				if err != nil {
+					logger.Error("链上取消订单失败", err, logrus.Fields{
+						"order_id": orderID,
+					})
+					return
+				}
+
+				// 等待交易确认
+				receipt, err := enhancedService.WaitForTransactionConfirmation(tx, 2*time.Minute)
+				if err != nil {
+					logger.Error("等待取消交易确认失败", err, logrus.Fields{
+						"order_id": orderID,
+						"tx_hash":  tx.Hash().Hex(),
+					})
+					return
+				}
+
+				logger.Info("链上订单取消并确认成功", logrus.Fields{
+					"order_id":     orderID,
+					"tx_hash":      tx.Hash().Hex(),
+					"block_number": receipt.BlockNumber.String(),
+				})
+			}
+		}()
 	}
 
 	return nil
@@ -232,9 +326,9 @@ func (os *OrderService) SyncOrderFromChain(orderID uint64) (*models.Order, error
 
 	order := &models.Order{
 		OrderID:           fmt.Sprintf("0x%x", orderID),
-		Maker:             &maker,
-		CollectionAddress: &collectionAddress,
-		TokenID:           &tokenID,
+		Maker:             maker,
+		CollectionAddress: collectionAddress,
+		TokenID:           tokenID,
 		Price:             price,
 		OrderType:         models.OrderType(chainOrder["orderType"].(uint8)),
 		OrderStatus:       models.OrderStatus(chainOrder["status"].(uint8)),
@@ -274,13 +368,81 @@ func (os *OrderService) MarkExpiredOrders() error {
 	return nil
 }
 
+// createOrUpdateItem 创建或更新Item记录
+func (os *OrderService) createOrUpdateItem(tx *gorm.DB, req *models.CreateOrderRequest, maker string, now int64) error {
+	var item models.Item
+
+	// 检查Item是否已存在
+	err := tx.Where("collection_address = ? AND token_id = ?", req.CollectionAddress, req.TokenID).First(&item).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// 创建新的Item记录
+		item = models.Item{
+			ChainID:           models.ChainIDEthereum,
+			TokenID:           req.TokenID,
+			Name:              fmt.Sprintf("NFT #%s", req.TokenID), // 默认名称
+			Owner:             &maker,
+			CollectionAddress: &req.CollectionAddress,
+			Creator:           maker,
+			Supply:            1, // 默认供应量为1
+			CreateTime:        &now,
+			UpdateTime:        &now,
+		}
+
+		// 如果是上架订单，设置上架价格和时间
+		if req.OrderType == models.OrderTypeListing {
+			item.ListPrice = &req.Price
+			item.ListTime = &now
+		}
+
+		if err := tx.Create(&item).Error; err != nil {
+			return fmt.Errorf("创建Item失败: %v", err)
+		}
+
+		logger.Info("创建新Item记录成功", logrus.Fields{
+			"collection_address": req.CollectionAddress,
+			"token_id":           req.TokenID,
+			"owner":              maker,
+			"order_type":         req.OrderType,
+		})
+	} else if err != nil {
+		return fmt.Errorf("查询Item失败: %v", err)
+	} else {
+		// 更新现有Item记录
+		updateData := map[string]interface{}{
+			"update_time": now,
+		}
+
+		// 如果是上架订单，更新上架价格和时间
+		if req.OrderType == models.OrderTypeListing {
+			updateData["list_price"] = req.Price
+			updateData["list_time"] = now
+			updateData["owner"] = maker // 更新拥有者
+		}
+
+		if err := tx.Model(&item).Updates(updateData).Error; err != nil {
+			return fmt.Errorf("更新Item失败: %v", err)
+		}
+
+		logger.Info("更新Item记录成功", logrus.Fields{
+			"collection_address": req.CollectionAddress,
+			"token_id":           req.TokenID,
+			"owner":              maker,
+			"order_type":         req.OrderType,
+			"update_data":        updateData,
+		})
+	}
+
+	return nil
+}
+
 // validateCreateOrderRequest 验证创建订单请求
 func (os *OrderService) validateCreateOrderRequest(req *models.CreateOrderRequest) error {
-	if req.CollectionAddress == nil || *req.CollectionAddress == "" {
+	if req.CollectionAddress == "" {
 		return fmt.Errorf("集合地址不能为空")
 	}
 
-	if req.TokenID == nil || *req.TokenID == "" {
+	if req.TokenID == "" {
 		return fmt.Errorf("Token ID不能为空")
 	}
 

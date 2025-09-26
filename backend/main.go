@@ -40,13 +40,13 @@ func main() {
 	}
 	logger.Info("数据库连接成功")
 
-	// 初始化区块链服务
-	blockchainService, err := services.NewBlockchainService(cfg.EthereumRPC, cfg.ContractAddress, cfg.PrivateKey)
+	// 初始化增强的区块链服务
+	blockchainService, err := services.NewEnhancedBlockchainService(cfg.EthereumRPC, cfg.ContractAddress, cfg.PrivateKey, db)
 	if err != nil {
-		logger.Error("区块链服务初始化失败", err)
+		logger.Error("增强区块链服务初始化失败", err)
 		panic(err)
 	}
-	logger.Info("区块链服务初始化成功", map[string]interface{}{
+	logger.Info("增强区块链服务初始化成功", map[string]interface{}{
 		"rpc_url":          cfg.EthereumRPC,
 		"contract_address": cfg.ContractAddress,
 	})
@@ -75,11 +75,12 @@ func main() {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
 	corsConfig.AllowCredentials = true
-	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-User-Address"}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	router.Use(cors.New(corsConfig))
 
 	// 设置API路由
-	api.SetupRoutes(router, orderService, nftService, collectionService, itemService, activityService)
+	api.SetupRoutes(router, orderService, nftService, collectionService, itemService, activityService, blockchainService)
 
 	// 启动服务器
 	logger.Info("服务器启动", map[string]interface{}{

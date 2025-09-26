@@ -50,8 +50,12 @@ const CreateOrderPage: React.FC = () => {
   const orderType = watch('orderType');
 
   const onSubmit = async (data: OrderFormData) => {
+    console.log('开始创建订单，表单数据:', data);
+    console.log('钱包连接状态:', { isConnected, account });
+    
     if (!isConnected || !account) {
       setError('请先连接钱包');
+      console.error('钱包未连接');
       return;
     }
 
@@ -77,6 +81,7 @@ const CreateOrderPage: React.FC = () => {
 
       // 保存用户地址到本地存储
       localStorage.setItem('userAddress', account);
+      console.log('准备发送订单数据:', orderData);
 
       const response = await apiService.createOrder(orderData);
       console.log('订单创建成功:', response);

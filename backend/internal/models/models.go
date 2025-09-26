@@ -100,11 +100,11 @@ type Order struct {
 	OrderStatus       OrderStatus    `json:"order_status" gorm:"type:tinyint;default:0;not null;comment:标记订单状态"`
 	OrderType         OrderType      `json:"order_type" gorm:"type:tinyint;not null;comment:1: listing 2:offer 3:collection bid 4:item bid"`
 	EventTime         *int64         `json:"event_time" gorm:"type:bigint;comment:订单时间"`
-	CollectionAddress *string        `json:"collection_address" gorm:"type:varchar(42);comment:集合地址"`
-	TokenID           *string        `json:"token_id" gorm:"type:varchar(128);comment:代币ID"`
+	CollectionAddress string         `json:"collection_address" gorm:"type:varchar(42);not null;comment:集合地址"`
+	TokenID           string         `json:"token_id" gorm:"type:varchar(128);not null;comment:代币ID"`
 	ExpireTime        *int64         `json:"expire_time" gorm:"type:bigint;comment:过期时间"`
 	Price             float64        `json:"price" gorm:"type:decimal(30);default:0;not null;comment:价格"`
-	Maker             *string        `json:"maker" gorm:"type:varchar(42);comment:创建者"`
+	Maker             string         `json:"maker" gorm:"type:varchar(42);not null;comment:创建者"`
 	Taker             *string        `json:"taker" gorm:"type:varchar(42);comment:接受者"`
 	QuantityRemaining int64          `json:"quantity_remaining" gorm:"type:bigint;default:1;not null;comment:erc721: 1, erc1155: n"`
 	Size              int64          `json:"size" gorm:"type:bigint;default:1;not null;comment:数量"`
@@ -177,8 +177,8 @@ type CreateItemRequest struct {
 
 // CreateOrderRequest 创建订单请求
 type CreateOrderRequest struct {
-	CollectionAddress *string   `json:"collection_address"`
-	TokenID           *string   `json:"token_id"`
+	CollectionAddress string    `json:"collection_address" binding:"required"`
+	TokenID           string    `json:"token_id" binding:"required"`
 	OrderType         OrderType `json:"order_type" binding:"required"`
 	Price             float64   `json:"price" binding:"required"`
 	ExpireTime        *int64    `json:"expire_time"`

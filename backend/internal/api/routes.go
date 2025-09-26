@@ -8,13 +8,14 @@ import (
 )
 
 // SetupRoutes 设置API路由
-func SetupRoutes(router *gin.Engine, orderService *services.OrderService, nftService *services.NFTService, collectionService *services.CollectionService, itemService *services.ItemService, activityService *services.ActivityService) {
+func SetupRoutes(router *gin.Engine, orderService *services.OrderService, nftService *services.NFTService, collectionService *services.CollectionService, itemService *services.ItemService, activityService *services.ActivityService, blockchainService *services.EnhancedBlockchainService) {
 	// 创建处理器
 	orderHandler := handlers.NewOrderHandler(orderService)
 	nftHandler := handlers.NewNFTHandler(nftService)
 	collectionHandler := handlers.NewCollectionHandler(collectionService)
 	itemHandler := handlers.NewItemHandler(itemService)
 	activityHandler := handlers.NewActivityHandler(activityService)
+	blockchainHandler := handlers.NewBlockchainHandler(blockchainService)
 
 	// API版本组
 	v1 := router.Group("/api/v1")
@@ -100,6 +101,17 @@ func SetupRoutes(router *gin.Engine, orderService *services.OrderService, nftSer
 					"data":    nil,
 				})
 			})
+		}
+
+		// 区块链管理相关路由
+		blockchain := v1.Group("/blockchain")
+		{
+			blockchain.GET("/status", blockchainHandler.GetBlockchainStatus)              // 获取区块链服务状态
+			blockchain.GET("/counter", blockchainHandler.GetOrderCounter)                 // 获取订单计数器
+			blockchain.GET("/order/:orderid", blockchainHandler.GetChainOrderInfo)        // 获取链上订单信息
+			blockchain.POST("/sync/order/:orderid", blockchainHandler.SyncOrderFromChain) // 同步单个订单
+			blockchain.POST("/sync/all", blockchainHandler.SyncAllOrdersFromChain)        // 同步所有订单
+			blockchain.POST("/execute/:orderid", blockchainHandler.ExecuteOrder)          // 执行订单
 		}
 	}
 }
