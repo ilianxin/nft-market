@@ -98,11 +98,18 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         uint256 _price,
         uint256 _expiration
     ) external nonReentrant {
-        require(_price > 0, "Price must be greater than 0");
-        require(_expiration > block.timestamp, "Expiration must be in the future");
-        require(IERC721(_nftContract).ownerOf(_tokenId) == msg.sender, "Not owner of NFT");
-        require(IERC721(_nftContract).isApprovedForAll(msg.sender, address(this)), "Contract not approved");
-        
+        _createLimitSellOrder(_nftContract, _tokenId, _price, _expiration);
+    }
+    
+    /**
+     * @dev 内部创建限价卖单函数
+     */
+    function _createLimitSellOrder(
+        address _nftContract,
+        uint256 _tokenId,
+        uint256 _price,
+        uint256 _expiration
+    ) internal {
         uint256 orderId = ++orderCounter;
         
         orders[orderId] = Order({
@@ -136,7 +143,19 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         uint256 _tokenId,
         uint256 _expiration
     ) external payable nonReentrant {
-        require(msg.value > 0, "Price must be greater than 0");
+        _createLimitBuyOrder(_nftContract, _tokenId, _expiration, msg.value);
+    }
+    
+    /**
+     * @dev 内部创建限价买单函数
+     */
+    function _createLimitBuyOrder(
+        address _nftContract,
+        uint256 _tokenId,
+        uint256 _expiration,
+        uint256 _value
+    ) internal {
+        require(_value > 0, "Price must be greater than 0");
         require(_expiration > block.timestamp, "Expiration must be in the future");
         
         uint256 orderId = ++orderCounter;
@@ -146,7 +165,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
             maker: msg.sender,
             nftContract: _nftContract,
             tokenId: _tokenId,
-            price: msg.value,
+            price: _value,
             amount: 1,
             timestamp: block.timestamp,
             expiration: _expiration,
@@ -158,7 +177,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         userOrders[msg.sender].push(orderId);
         nftOrders[_nftContract][_tokenId].push(orderId);
         
-        emit OrderCreated(orderId, msg.sender, _nftContract, _tokenId, msg.value, OrderType.LimitBuy);
+        emit OrderCreated(orderId, msg.sender, _nftContract, _tokenId, _value, OrderType.LimitBuy);
     }
     
     /**
@@ -249,12 +268,12 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         // 创建新订单
         if (oldOrder.orderType == OrderType.LimitSell) {
             require(_newPrice > 0, "Price must be greater than 0");
-            createLimitSellOrder(oldOrder.nftContract, oldOrder.tokenId, _newPrice, _newExpiration);
+            _createLimitSellOrder(oldOrder.nftContract, oldOrder.tokenId, _newPrice, _newExpiration);
         } else if (oldOrder.orderType == OrderType.LimitBuy) {
             require(msg.value > 0, "Must send ETH for buy order");
             // 退还原订单的ETH
             payable(msg.sender).transfer(oldOrder.price);
-            createLimitBuyOrder(oldOrder.nftContract, oldOrder.tokenId, _newExpiration);
+            _createLimitBuyOrder(oldOrder.nftContract, oldOrder.tokenId, _newExpiration, msg.value);
         }
         
         emit OrderCancelled(_orderId, msg.sender);
