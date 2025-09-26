@@ -25,18 +25,18 @@ const NFTDetailPage: React.FC = () => {
   const { contract, tokenId } = useParams<{ contract: string; tokenId: string }>();
   const [selectedOrderType, setSelectedOrderType] = useState<'sell' | 'buy'>('sell');
 
-  // 获取NFT信息
-  const { data: nftData, isLoading: nftLoading } = useQuery(
-    ['nft', contract, tokenId],
-    () => apiService.getNFTById(contract!, tokenId!),
+  // 获取物品信息
+  const { data: itemData, isLoading: itemLoading } = useQuery(
+    ['item', contract, tokenId],
+    () => apiService.getItemByTokenId(contract!, tokenId!),
     {
       enabled: !!contract && !!tokenId,
     }
   );
 
-  // 获取NFT的所有订单
+  // 获取物品的所有订单
   const { data: ordersData, isLoading: ordersLoading } = useQuery(
-    ['nftOrders', contract, tokenId],
+    ['itemOrders', contract, tokenId],
     () => apiService.getNFTOrders(contract!, tokenId!),
     {
       enabled: !!contract && !!tokenId,
@@ -47,52 +47,51 @@ const NFTDetailPage: React.FC = () => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const formatPrice = (price: string) => {
+  const formatPrice = (price: number) => {
     try {
-      const ethValue = parseFloat(price) / Math.pow(10, 18);
-      return ethValue.toFixed(4) + ' ETH';
+      return price.toFixed(4) + ' ETH';
     } catch {
-      return price;
+      return price.toString();
     }
   };
 
-  const getOrderStatusColor = (status: string) => {
+  const getOrderStatusColor = (status: number) => {
     switch (status) {
-      case 'active': return 'success';
-      case 'filled': return 'info';
-      case 'cancelled': return 'error';
-      case 'expired': return 'warning';
+      case 0: return 'success'; // 活跃
+      case 1: return 'info';    // 已成交
+      case 2: return 'error';   // 已取消
+      case 3: return 'warning'; // 已过期
       default: return 'default';
     }
   };
 
-  const getOrderStatusText = (status: string) => {
+  const getOrderStatusText = (status: number) => {
     switch (status) {
-      case 'active': return '活跃';
-      case 'filled': return '已成交';
-      case 'cancelled': return '已取消';
-      case 'expired': return '已过期';
-      default: return status;
+      case 0: return '活跃';
+      case 1: return '已成交';
+      case 2: return '已取消';
+      case 3: return '已过期';
+      default: return `状态${status}`;
     }
   };
 
   // 过滤卖单和买单
-  const sellOrders = ordersData?.data?.orders?.filter((orderResponse: any) => 
-    orderResponse.order.order_type === 'limit_sell' || orderResponse.order.order_type === 'market_sell'
+  const sellOrders = ordersData?.data?.orders?.filter((order: any) => 
+    order.order_type === 1 // 上架
   ) || [];
   
-  const buyOrders = ordersData?.data?.orders?.filter((orderResponse: any) => 
-    orderResponse.order.order_type === 'limit_buy' || orderResponse.order.order_type === 'market_buy'
+  const buyOrders = ordersData?.data?.orders?.filter((order: any) => 
+    order.order_type === 2 // 出价
   ) || [];
 
   // 获取最佳价格
   const bestSellPrice = sellOrders
-    .filter((orderResponse: any) => orderResponse.order.status === 'active')
-    .sort((a: any, b: any) => parseFloat(a.order.price) - parseFloat(b.order.price))[0];
+    .filter((order: any) => order.order_status === 0) // 活跃状态
+    .sort((a: any, b: any) => a.price - b.price)[0];
     
   const bestBuyPrice = buyOrders
-    .filter((orderResponse: any) => orderResponse.order.status === 'active')
-    .sort((a: any, b: any) => parseFloat(b.order.price) - parseFloat(a.order.price))[0];
+    .filter((order: any) => order.order_status === 0) // 活跃状态
+    .sort((a: any, b: any) => b.price - a.price)[0];
 
   if (!contract || !tokenId) {
     return (
@@ -117,36 +116,30 @@ const NFTDetailPage: React.FC = () => {
                 justifyContent: 'center',
               }}
             >
-              {nftLoading ? (
+              {itemLoading ? (
                 <CircularProgress />
-              ) : nftData?.data?.image ? (
-                <img
-                  src={nftData.data.image}
-                  alt={nftData.data.name || `NFT #${tokenId}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
               ) : (
                 <Typography variant="h4" color="text.secondary">
-                  NFT #{tokenId}
+                  Item #{tokenId}
                 </Typography>
               )}
             </Box>
             <CardContent>
               <Typography variant="h5" gutterBottom>
-                {nftData?.data?.name || `NFT #${tokenId}`}
+                {itemData?.data?.item?.name || `Item #${tokenId}`}
               </Typography>
               <Typography variant="body1" color="text.secondary" paragraph>
-                {nftData?.data?.description || '暂无描述'}
+                暂无描述
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                合约地址: {formatAddress(contract)}
+                集合地址: {formatAddress(contract)}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Token ID: {tokenId}
               </Typography>
-              {nftData?.data?.owner && (
+              {itemData?.data?.item?.owner && (
                 <Typography variant="body2" color="text.secondary">
-                  当前所有者: {formatAddress(nftData.data.owner)}
+                  当前所有者: {formatAddress(itemData.data.item.owner)}
                 </Typography>
               )}
             </CardContent>
@@ -167,7 +160,7 @@ const NFTDetailPage: React.FC = () => {
                     最低售价
                   </Typography>
                   <Typography variant="h6" color="white">
-                    {bestSellPrice ? formatPrice(bestSellPrice.order.price) : '暂无'}
+                    {bestSellPrice ? formatPrice(bestSellPrice.price) : '暂无'}
                   </Typography>
                 </Box>
               </Grid>
@@ -177,7 +170,7 @@ const NFTDetailPage: React.FC = () => {
                     最高出价
                   </Typography>
                   <Typography variant="h6" color="white">
-                    {bestBuyPrice ? formatPrice(bestBuyPrice.order.price) : '暂无'}
+                    {bestBuyPrice ? formatPrice(bestBuyPrice.price) : '暂无'}
                   </Typography>
                 </Box>
               </Grid>
@@ -191,7 +184,7 @@ const NFTDetailPage: React.FC = () => {
                   fullWidth
                   size="large"
                 >
-                  立即购买 {formatPrice(bestSellPrice.order.price)}
+                  立即购买 {formatPrice(bestSellPrice.price)}
                 </Button>
               )}
               {bestBuyPrice && (
@@ -201,7 +194,7 @@ const NFTDetailPage: React.FC = () => {
                   fullWidth
                   size="large"
                 >
-                  立即出售 {formatPrice(bestBuyPrice.order.price)}
+                  立即出售 {formatPrice(bestBuyPrice.price)}
                 </Button>
               )}
             </Box>
@@ -251,8 +244,7 @@ const NFTDetailPage: React.FC = () => {
                     <TableBody>
                       {(selectedOrderType === 'sell' ? sellOrders : buyOrders)
                         .slice(0, 10)
-                        .map((orderResponse: any) => {
-                          const order = orderResponse.order;
+                        .map((order: any) => {
                           return (
                             <TableRow key={order.id}>
                               <TableCell>
@@ -262,18 +254,18 @@ const NFTDetailPage: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={getOrderStatusText(order.status)}
-                                  color={getOrderStatusColor(order.status) as any}
+                                  label={getOrderStatusText(order.order_status)}
+                                  color={getOrderStatusColor(order.order_status) as any}
                                   size="small"
                                 />
                               </TableCell>
                               <TableCell>
                                 <Typography variant="body2">
-                                  {formatAddress(order.maker)}
+                                  {formatAddress(order.maker || '')}
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                {order.status === 'active' && (
+                                {order.order_status === 0 && (
                                   <Button
                                     size="small"
                                     variant="outlined"
@@ -319,14 +311,13 @@ const NFTDetailPage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {ordersData?.data?.orders?.map((orderResponse: any) => {
-                  const order = orderResponse.order;
+                {ordersData?.data?.orders?.map((order: any) => {
                   return (
                     <TableRow key={order.id}>
                       <TableCell>
                         <Chip
-                          label={order.order_type === 'limit_sell' || order.order_type === 'market_sell' ? '卖单' : '买单'}
-                          color={order.order_type === 'limit_sell' || order.order_type === 'market_sell' ? 'error' : 'success'}
+                          label={order.order_type === 1 ? '上架' : '出价'}
+                          color={order.order_type === 1 ? 'error' : 'success'}
                           size="small"
                         />
                       </TableCell>
@@ -337,17 +328,17 @@ const NFTDetailPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={getOrderStatusText(order.status)}
-                          color={getOrderStatusColor(order.status) as any}
+                          label={getOrderStatusText(order.order_status)}
+                          color={getOrderStatusColor(order.order_status) as any}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{formatAddress(order.maker)}</TableCell>
+                      <TableCell>{formatAddress(order.maker || '')}</TableCell>
                       <TableCell>
-                        {new Date(order.created_at).toLocaleDateString()}
+                        {order.create_time ? new Date(order.create_time * 1000).toLocaleDateString() : '未知'}
                       </TableCell>
                       <TableCell>
-                        {new Date(order.expiration).toLocaleDateString()}
+                        {order.expire_time ? new Date(order.expire_time * 1000).toLocaleDateString() : '无'}
                       </TableCell>
                     </TableRow>
                   );

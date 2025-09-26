@@ -1,4 +1,5 @@
 import axios from 'axios';
+import logger from '../utils/logger';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api/v1';
 
@@ -14,6 +15,9 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
+    // 记录API调用
+    logger.logApiCall(config.method?.toUpperCase() || 'GET', config.url || '', config.data);
+    
     // 添加用户地址到请求头（如果存在）
     const userAddress = localStorage.getItem('userAddress');
     if (userAddress) {
@@ -22,6 +26,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    logger.error('API请求错误', error);
     return Promise.reject(error);
   }
 );
@@ -29,10 +34,28 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
+    // 记录API响应
+    logger.logApiResponse(
+      response.config.method?.toUpperCase() || 'GET',
+      response.config.url || '',
+      response.status,
+      response.data
+    );
     return response;
   },
   (error) => {
-    console.error('API错误:', error);
+    // 记录API错误响应
+    const status = error.response?.status || 0;
+    const url = error.config?.url || '';
+    const method = error.config?.method?.toUpperCase() || 'GET';
+    
+    logger.logApiResponse(method, url, status, error.response?.data);
+    logger.error('API错误', error, {
+      url,
+      method,
+      status,
+      data: error.response?.data
+    });
     return Promise.reject(error);
   }
 );

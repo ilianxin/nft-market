@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"net/http"
+	"nft-market/internal/logger"
 	"nft-market/internal/models"
 	"nft-market/internal/services"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 // OrderHandler 订单处理器
@@ -46,6 +48,13 @@ func (oh *OrderHandler) CreateOrder(c *gin.Context) {
 
 	order, err := oh.orderService.CreateOrder(&req, userAddress)
 	if err != nil {
+		logger.Error("创建订单失败", err, logrus.Fields{
+			"user_address":       userAddress,
+			"collection_address": req.CollectionAddress,
+			"token_id":           req.TokenID,
+			"order_type":         req.OrderType,
+			"price":              req.Price,
+		})
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "create_order_failed",
 			Message: "创建订单失败: " + err.Error(),
@@ -54,6 +63,14 @@ func (oh *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	logger.Info("订单创建成功", logrus.Fields{
+		"order_id":           order.ID,
+		"user_address":       userAddress,
+		"collection_address": req.CollectionAddress,
+		"token_id":           req.TokenID,
+		"order_type":         req.OrderType,
+		"price":              req.Price,
+	})
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "订单创建成功",
 		"data":    order,
@@ -75,6 +92,10 @@ func (oh *OrderHandler) GetOrderByID(c *gin.Context) {
 
 	order, err := oh.orderService.GetOrderByID(uint(id))
 	if err != nil {
+		logger.Warn("订单不存在", logrus.Fields{
+			"order_id": id,
+			"error":    err.Error(),
+		})
 		c.JSON(http.StatusNotFound, models.ErrorResponse{
 			Error:   "order_not_found",
 			Message: "订单不存在",
@@ -105,6 +126,11 @@ func (oh *OrderHandler) GetOrders(c *gin.Context) {
 
 	orders, err := oh.orderService.GetActiveOrders(page, pageSize, orderType)
 	if err != nil {
+		logger.Error("获取订单列表失败", err, logrus.Fields{
+			"page":       page,
+			"page_size":  pageSize,
+			"order_type": orderType,
+		})
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "get_orders_failed",
 			Message: "获取订单列表失败: " + err.Error(),
@@ -205,6 +231,10 @@ func (oh *OrderHandler) CancelOrder(c *gin.Context) {
 
 	err = oh.orderService.CancelOrder(id, userAddress)
 	if err != nil {
+		logger.Error("取消订单失败", err, logrus.Fields{
+			"order_id":     id,
+			"user_address": userAddress,
+		})
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "cancel_order_failed",
 			Message: "取消订单失败: " + err.Error(),
@@ -213,6 +243,10 @@ func (oh *OrderHandler) CancelOrder(c *gin.Context) {
 		return
 	}
 
+	logger.Info("订单取消成功", logrus.Fields{
+		"order_id":     id,
+		"user_address": userAddress,
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"message": "订单取消成功",
 	})
