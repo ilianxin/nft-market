@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const hre = require("hardhat");
 
 async function main() {
   console.log("开始部署NFT市场合约...");
@@ -6,7 +7,7 @@ async function main() {
   // 获取部署账户
   const [deployer] = await ethers.getSigners();
   console.log("部署账户:", deployer.address);
-  console.log("账户余额:", ethers.utils.formatEther(await deployer.getBalance()));
+  console.log("账户余额:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)));
 
   // 设置手续费收取地址（使用部署者地址作为示例）
   const feeRecipient = deployer.address;
@@ -15,9 +16,9 @@ async function main() {
   const NFTMarketplace = await ethers.getContractFactory("NFTMarketplace");
   const marketplace = await NFTMarketplace.deploy(feeRecipient);
 
-  await marketplace.deployed();
+  await marketplace.waitForDeployment();
 
-  console.log("NFTMarketplace合约部署到:", marketplace.address);
+  console.log("NFTMarketplace合约部署到:", await marketplace.getAddress());
   console.log("手续费收取地址:", feeRecipient);
 
   // 验证合约部署
@@ -30,9 +31,9 @@ async function main() {
   // 保存合约地址到文件
   const fs = require('fs');
   const contractAddresses = {
-    NFTMarketplace: marketplace.address,
+    NFTMarketplace: await marketplace.getAddress(),
     deployer: deployer.address,
-    network: hardhat.network.name
+    network: hre.network.name
   };
   
   fs.writeFileSync(
