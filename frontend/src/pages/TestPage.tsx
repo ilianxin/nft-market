@@ -72,7 +72,7 @@ const TestPage: React.FC = () => {
 
   // 设置测试用户地址
   const setupTestUser = () => {
-    const testAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const testAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
     localStorage.setItem('userAddress', testAddress);
     addResult('设置测试用户', {
       success: true,
@@ -95,23 +95,56 @@ const TestPage: React.FC = () => {
       test: async () => {
         // 先获取订单列表，找到一个可购买的订单
         const ordersResponse = await apiService.getOrders();
+        logger.info('获取订单列表响应', ordersResponse);
+        
         const orders = ordersResponse?.data?.orders || [];
+        logger.info('订单列表', { totalOrders: orders.length, orders });
+        
+        // 查找可购买的订单（listing类型且不是自己创建的）
+        const currentUserAddress = localStorage.getItem('userAddress') || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
         const buyableOrder = orders.find((order: any) => 
           order.order_status === 0 && 
-          order.order_type === 1 && 
-          order.maker !== '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+          order.order_type === 1 && // listing
+          order.maker !== currentUserAddress
         );
+        
+        logger.info('查找可购买订单', { 
+          currentUserAddress, 
+          buyableOrder: buyableOrder ? { 
+            id: buyableOrder.id, 
+            maker: buyableOrder.maker, 
+            price: buyableOrder.price,
+            order_type: buyableOrder.order_type,
+            order_status: buyableOrder.order_status
+          } : null 
+        });
         
         if (!buyableOrder) {
           // 如果没有可购买的订单，创建一个测试订单
-          await apiService.createOrder({
-            ...testOrderData,
-            order_type: 1, // listing
-            price: 0.1
-          });
+          logger.info('没有找到可购买的订单，创建测试订单');
+          
+          // 使用不同的用户地址创建订单
+          const originalAddress = localStorage.getItem('userAddress');
+          localStorage.setItem('userAddress', '0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec');
+          
+          try {
+            await apiService.createOrder({
+              ...testOrderData,
+              order_type: 1, // listing
+              price: 0.1,
+              token_id: String(Date.now()) // 使用时间戳确保唯一性
+            });
+          } finally {
+            // 恢复原来的地址
+            if (originalAddress) {
+              localStorage.setItem('userAddress', originalAddress);
+            }
+          }
+          
           throw new Error('没有找到可购买的订单，已创建测试订单，请重新测试购买功能');
         }
         
+        logger.info('开始购买订单', { orderId: buyableOrder.id, price: buyableOrder.price });
         return apiService.purchaseOrder(buyableOrder.id, buyableOrder.price);
       }
     },
@@ -130,6 +163,43 @@ const TestPage: React.FC = () => {
     {
       name: '获取区块链状态',
       test: () => fetch('http://localhost:8080/api/v1/blockchain/status').then(r => r.json())
+    },
+    {
+      name: '检查数据库状态',
+      test: async () => {
+        const [ordersResponse, itemsResponse] = await Promise.all([
+          apiService.getOrders(),
+          apiService.getItems()
+        ]);
+        
+        const orders = ordersResponse?.data?.orders || [];
+        const items = itemsResponse?.data?.items || [];
+        
+        return {
+          orders: {
+            total: orders.length,
+            active: orders.filter((o: any) => o.order_status === 0).length,
+            listings: orders.filter((o: any) => o.order_type === 1).length,
+            offers: orders.filter((o: any) => o.order_type === 2).length,
+            sample: orders.slice(0, 3).map((o: any) => ({
+              id: o.id,
+              maker: o.maker,
+              price: o.price,
+              status: o.order_status,
+              type: o.order_type
+            }))
+          },
+          items: {
+            total: items.length,
+            sample: items.slice(0, 3).map((i: any) => ({
+              id: i.id,
+              token_id: i.token_id,
+              owner: i.owner,
+              collection_address: i.collection_address
+            }))
+          }
+        };
+      }
     }
   ];
 

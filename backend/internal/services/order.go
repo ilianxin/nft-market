@@ -300,11 +300,28 @@ func (os *OrderService) CancelOrder(orderID uint64, userAddress string) error {
 
 // PurchaseOrder 购买订单
 func (os *OrderService) PurchaseOrder(orderID uint64, buyerAddress string, offeredPrice float64) error {
+	logger.Info("开始购买订单", logrus.Fields{
+		"order_id":      orderID,
+		"buyer_address": buyerAddress,
+		"offered_price": offeredPrice,
+	})
+
 	// 查找订单
 	var order models.Order
 	if err := os.db.First(&order, orderID).Error; err != nil {
+		logger.Error("订单查找失败", err, logrus.Fields{
+			"order_id": orderID,
+		})
 		return fmt.Errorf("订单不存在: %v", err)
 	}
+
+	logger.Info("找到订单", logrus.Fields{
+		"order_id":     orderID,
+		"order_maker":  order.Maker,
+		"order_price":  order.Price,
+		"order_status": order.OrderStatus,
+		"order_type":   order.OrderType,
+	})
 
 	// 验证订单状态
 	if order.OrderStatus != models.OrderStatusActive {
