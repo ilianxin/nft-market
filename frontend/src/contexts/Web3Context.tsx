@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ethers } from 'ethers';
 
 interface Web3ContextType {
@@ -26,6 +26,27 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
 
   const isConnected = account !== null;
 
+  const disconnectWallet = useCallback(() => {
+    setAccount(null);
+    setProvider(null);
+    setSigner(null);
+    setChainId(null);
+  }, []);
+
+  const handleAccountsChanged = useCallback((accounts: string[]) => {
+    if (accounts.length === 0) {
+      disconnectWallet();
+    } else {
+      setAccount(accounts[0]);
+    }
+  }, [disconnectWallet]);
+
+  const handleChainChanged = useCallback((chainId: string) => {
+    setChainId(parseInt(chainId, 16).toString());
+    // 重新加载页面以确保状态同步
+    window.location.reload();
+  }, []);
+
   // 检查是否已连接钱包
   useEffect(() => {
     checkConnection();
@@ -42,7 +63,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
         window.ethereum.removeListener('chainChanged', handleChainChanged);
       }
     };
-  }, []);
+  }, [handleAccountsChanged, handleChainChanged]);
 
   const checkConnection = async () => {
     if (window.ethereum) {
@@ -90,13 +111,6 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     }
   };
 
-  const disconnectWallet = () => {
-    setAccount(null);
-    setProvider(null);
-    setSigner(null);
-    setChainId(null);
-  };
-
   const switchNetwork = async (targetChainId: string) => {
     if (!window.ethereum) return;
 
@@ -113,20 +127,6 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
         console.error('切换网络失败:', error);
       }
     }
-  };
-
-  const handleAccountsChanged = (accounts: string[]) => {
-    if (accounts.length === 0) {
-      disconnectWallet();
-    } else {
-      setAccount(accounts[0]);
-    }
-  };
-
-  const handleChainChanged = (chainId: string) => {
-    setChainId(parseInt(chainId, 16).toString());
-    // 重新加载页面以确保状态同步
-    window.location.reload();
   };
 
   const value: Web3ContextType = {

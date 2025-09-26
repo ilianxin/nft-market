@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   Grid,
   Card,
   CardContent,
-  CardMedia,
   Button,
   Tabs,
   Tab,
@@ -121,10 +120,9 @@ const MarketplacePage: React.FC = () => {
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
                     <Card className="nft-card">
-                      <CardMedia
-                        component="div"
-                        height="200"
+                      <Box
                         sx={{
+                          height: 200,
                           bgcolor: 'grey.200',
                           display: 'flex',
                           alignItems: 'center',
@@ -134,7 +132,7 @@ const MarketplacePage: React.FC = () => {
                         <Typography variant="h6" color="text.secondary">
                           NFT #{order.token_id}
                         </Typography>
-                      </CardMedia>
+                      </Box>
                       <CardContent>
                         <Box sx={{ mb: 1 }}>
                           <Chip 
@@ -216,10 +214,9 @@ const MarketplacePage: React.FC = () => {
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
                     <Card className="nft-card">
-                      <CardMedia
-                        component="div"
-                        height="200"
+                      <Box
                         sx={{
+                          height: 200,
                           bgcolor: 'grey.200',
                           display: 'flex',
                           alignItems: 'center',
@@ -229,7 +226,7 @@ const MarketplacePage: React.FC = () => {
                         <Typography variant="h6" color="text.secondary">
                           NFT #{order.token_id}
                         </Typography>
-                      </CardMedia>
+                      </Box>
                       <CardContent>
                         <Box sx={{ mb: 1 }}>
                           <Chip label="限价卖单" color="error" size="small" />
@@ -278,10 +275,9 @@ const MarketplacePage: React.FC = () => {
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
                     <Card className="nft-card">
-                      <CardMedia
-                        component="div"
-                        height="200"
+                      <Box
                         sx={{
+                          height: 200,
                           bgcolor: 'grey.200',
                           display: 'flex',
                           alignItems: 'center',
@@ -291,7 +287,7 @@ const MarketplacePage: React.FC = () => {
                         <Typography variant="h6" color="text.secondary">
                           NFT #{order.token_id}
                         </Typography>
-                      </CardMedia>
+                      </Box>
                       <CardContent>
                         <Box sx={{ mb: 1 }}>
                           <Chip label="限价买单" color="success" size="small" />
