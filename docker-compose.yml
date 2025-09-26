@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: nft_market_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: nft_market
+      MYSQL_USER: nft_user
+      MYSQL_PASSWORD: nft_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/scripts/init_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - nft_network
+
+  # phpMyAdmin（可选，用于数据库管理）
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: nft_market_phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - nft_network
+
+volumes:
+  mysql_data:
+
+networks:
+  nft_network:
+    driver: bridge

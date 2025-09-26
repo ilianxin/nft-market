@@ -1,0 +1,97 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 自定义样式 */
+.nft-card {
+  transition: transform 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.nft-card:hover {
+  transform: translateY(-4px);
+}
+
+.order-book-container {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.buy-orders {
+  color: #4caf50;
+}
+
+.sell-orders {
+  color: #f44336;
+}
+
+.price-input {
+  margin: 8px 0;
+}
+
+.wallet-connect-button {
+  margin: 8px;
+}
+
+.order-form {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin: 16px 0;
+}
+
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 60px 0;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.stats-card {
+  text-align: center;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
