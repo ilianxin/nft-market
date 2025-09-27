@@ -1,0 +1,19 @@
+{
+  "name": "Local Test NFT #2",
+  "description": "这是第二个测试NFT，具有不同的颜色和属性。",
+  "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzEwYjk4MSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+TkZUICMyPC90ZXh0Pgo8L3N2Zz4=",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Test NFT"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Hardhat Local"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Rare"
+    }
+  ]
+}

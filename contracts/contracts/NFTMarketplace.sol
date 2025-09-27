@@ -330,6 +330,33 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     }
     
     /**
+     * @dev 执行订单（外部调用）
+     * @param _orderId 订单ID
+     */
+    function executeOrder(uint256 _orderId) external payable nonReentrant {
+        Order storage order = orders[_orderId];
+        require(order.status == OrderStatus.Active, "Order not active");
+        require(order.expiration > block.timestamp, "Order expired");
+        require(order.maker != msg.sender, "Cannot execute own order");
+        
+        if (order.orderType == OrderType.LimitSell) {
+            // 买家执行卖单，需要支付ETH
+            require(msg.value >= order.price, "Insufficient payment");
+            _executeTrade(_orderId, msg.sender);
+            
+            // 退还多余的ETH
+            if (msg.value > order.price) {
+                payable(msg.sender).transfer(msg.value - order.price);
+            }
+        } else if (order.orderType == OrderType.LimitBuy) {
+            // 卖家执行买单，需要拥有NFT
+            require(IERC721(order.nftContract).ownerOf(order.tokenId) == msg.sender, "Not NFT owner");
+            require(IERC721(order.nftContract).isApprovedForAll(msg.sender, address(this)), "Not approved");
+            _executeTrade(_orderId, msg.sender);
+        }
+    }
+
+    /**
      * @dev 执行交易
      * @param _orderId 订单ID
      * @param _taker 接受者地址
